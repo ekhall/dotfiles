@@ -1,3 +1,5 @@
+;;; config.el --- generated from config.org -*- lexical-binding: t; -*-
+
 ;; [[file:config.org::*Package Management][Package Management:1]]
 (require 'package)
 (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
@@ -12,12 +14,20 @@
 (menu-bar-mode -1)
 (tool-bar-mode -1)
 (setq visible-bell t)
-(add-to-list 'default-frame-alist '(height . 45))
+(if (string-prefix-p "KevinsMacStudio" (system-name))
+    (progn
+      (add-to-list 'default-frame-alist '(width . 100))
+      (add-to-list 'default-frame-alist '(height . 60)))
+  (add-to-list 'default-frame-alist '(height . 45)))
 ;; Basic UI and Startup Behavior:1 ends here
 
 ;; [[file:config.org::*Fonts][Fonts:1]]
-(when (member "SF Mono" (font-family-list))
-  (set-face-attribute 'default nil :family "SF Mono" :height 140))
+(let ((mono-font (seq-find (lambda (f) (member f (font-family-list)))
+                           '("SF Mono" "Menlo"))))
+  (set-face-attribute
+   'default nil
+   :family (or mono-font (face-attribute 'default :family))
+   :height (if (string-prefix-p "KevinsMacStudio" (system-name)) 160 140)))
 ;; Fonts:1 ends here
 
 ;; [[file:config.org::*Networking][Networking:1]]
@@ -76,6 +86,13 @@
 
 (use-package embark-consult
   :after (embark consult)
+  ;; Load eagerly once both Embark and Consult are present, rather
+  ;; than waiting for first use. Embark itself checks (via
+  ;; `with-eval-after-load' on Consult) whether embark-consult has
+  ;; already been required, and warns if it hasn't -- which fires
+  ;; immediately at startup if this package is left to load lazily,
+  ;; even though it's installed.
+  :demand t
   :hook
   (embark-collect-mode . consult-preview-at-point-mode))
 ;; Embark:1 ends here

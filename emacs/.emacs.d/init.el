@@ -24,6 +24,17 @@
 (when (file-exists-p custom-file)
   (load custom-file))
 
+;; Third-party packages get natively compiled in the background the
+;; first time they're loaded on a new machine. That compilation
+;; surfaces style nits in code we don't control (missing
+;; `lexical-binding' cookies, free-variable references, etc.) as a
+;; `*Warnings*' buffer that pops up and steals focus on startup. The
+;; warnings are cosmetic upstream noise, not signs of a broken
+;; config, so suppress the pop-up; native-comp keeps compiling and
+;; logging quietly either way.
+(when (boundp 'native-comp-async-report-warnings-errors)
+  (setq native-comp-async-report-warnings-errors nil))
+
 (require 'org)
 (org-babel-load-file (expand-file-name "config.org" user-emacs-directory))
 

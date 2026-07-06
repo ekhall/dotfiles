@@ -40,6 +40,25 @@ To change your configuration, edit *this file*, not ~init.el~ or
 ~config.el~ — the latter is generated and any hand edits to it will
 be silently overwritten on the next startup.
 
+* Preamble
+
+~org-babel-load-file~ tangles every block below into ~config.el~
+with a leading ~:comments link~ line (per the file-wide
+~header-args~ above), so the *first* line of ~config.el~ is normally
+a comment pointing back to this file's headings, not a
+~lexical-binding~ cookie. Emacs only honors that cookie on the
+file's literal first line, and a trailing "Local Variables" footer
+turns out to be unreliable for it too (Emacs warns that lexical-
+binding set only at the end of a file can't be trusted, since
+loading may already be underway by the time it's read). So this
+block overrides ~:comments~ to ~no~, making it tangle as a bare first
+line, matching every hand-written file in this directory and
+avoiding the native compiler's dynamic-scope warning on ~config.el~.
+
+#+begin_src emacs-lisp :comments no
+;;; config.el --- generated from config.org -*- lexical-binding: t; -*-
+#+end_src
+
 * Package Management
 
 We use the built-in =package.el= with MELPA added as a package
@@ -59,24 +78,51 @@ below will auto-install its package if it isn't already present.
 * Basic UI and Startup Behavior
 
 Trim the startup screen and chrome, and give new frames a bit more
-vertical room.
+room. Frame dimensions are per-machine, same reasoning as the font
+height below: the Linux box keeps its original 45-line-tall default
+(width unspecified), while ~KevinsMacStudio~ opens at 100x60
+characters.
 
 #+begin_src emacs-lisp
 (setq inhibit-startup-message t)
 (menu-bar-mode -1)
 (tool-bar-mode -1)
 (setq visible-bell t)
-(add-to-list 'default-frame-alist '(height . 45))
+(if (string-prefix-p "KevinsMacStudio" (system-name))
+    (progn
+      (add-to-list 'default-frame-alist '(width . 100))
+      (add-to-list 'default-frame-alist '(height . 60)))
+  (add-to-list 'default-frame-alist '(height . 45)))
 #+end_src
 
 ** Fonts
 
-Use SF Mono when it's installed on the system; otherwise fall back
-to whatever Emacs's default face already resolves to.
+Try SF Mono first, then Menlo (macOS's own default monospace,
+always present), then whatever Emacs already resolves to. SF Mono
+is bundled *inside* apps like Xcode and Terminal but isn't
+registered as a system font other apps can look up by name unless
+it's separately installed (Apple distributes it standalone at
+[[https://developer.apple.com/fonts/]]) -- so on a fresh machine
+~(member "SF Mono" (font-family-list))~ comes back nil and this
+falls through to Menlo, which is why the family previously silently
+stayed at Emacs's built-in default.
+
+Critically, the height is set unconditionally, outside any font-
+family check -- previously it was set only inside the ~when~ guard
+above, so on a machine without SF Mono registered, the size never
+applied either. Height is per-machine: this config is shared
+between a Linux box (where 140 / 14pt reads correctly) and
+~KevinsMacStudio~, whose display needs 160 / 16pt to look the same
+size. ~system-name~ distinguishes them so one ~config.org~ can serve
+both without editing this on every pull.
 
 #+begin_src emacs-lisp
-(when (member "SF Mono" (font-family-list))
-  (set-face-attribute 'default nil :family "SF Mono" :height 140))
+(let ((mono-font (seq-find (lambda (f) (member f (font-family-list)))
+                           '("SF Mono" "Menlo"))))
+  (set-face-attribute
+   'default nil
+   :family (or mono-font (face-attribute 'default :family))
+   :height (if (string-prefix-p "KevinsMacStudio" (system-name)) 160 140)))
 #+end_src
 
 ** Networking
@@ -185,6 +231,13 @@ elsewhere.
 
 (use-package embark-consult
   :after (embark consult)
+  ;; Load eagerly once both Embark and Consult are present, rather
+  ;; than waiting for first use. Embark itself checks (via
+  ;; `with-eval-after-load' on Consult) whether embark-consult has
+  ;; already been required, and warns if it hasn't -- which fires
+  ;; immediately at startup if this package is left to load lazily,
+  ;; even though it's installed.
+  :demand t
   :hook
   (embark-collect-mode . consult-preview-at-point-mode))
 #+end_src
