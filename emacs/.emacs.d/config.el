@@ -216,4 +216,22 @@
 
   ;; Corrects (and improves) org-mode's native fontification.
   (doom-themes-org-config))
+
+(defvar my/theme-toggle-list '(doom-one doom-ayu-light)
+  "Themes `my/toggle-theme' alternates between.")
+
+(defun my/toggle-theme ()
+  "Switch between the two themes in `my/theme-toggle-list'.
+Disables whatever theme is currently active first, so themes
+never stack."
+  (interactive)
+  (let* ((current (car custom-enabled-themes))
+         (next (if (eq current (car my/theme-toggle-list))
+                   (cadr my/theme-toggle-list)
+                 (car my/theme-toggle-list))))
+    (mapc #'disable-theme custom-enabled-themes)
+    (load-theme next t)
+    (message "Theme: %s" next)))
+
+(global-set-key (kbd "C-c t") #'my/toggle-theme)
 ;; Themes:1 ends here

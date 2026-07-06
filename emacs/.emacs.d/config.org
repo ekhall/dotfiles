@@ -10,6 +10,7 @@ export. Update it whenever a keybinding below changes.
 | Key             | Command               | Notes                                     |
 |-----------------+-----------------------+-------------------------------------------|
 | C-c r           | (reload config)       | re-tangles + reloads config.org           |
+| C-c t           | my/toggle-theme       | toggle doom-one / doom-ayu-light          |
 | C-x b           | consult-buffer        | enhanced switch-to-buffer                 |
 | M-g g           | consult-goto-line     | enhanced goto-line                        |
 | M-g i           | consult-imenu         | enhanced imenu                            |
@@ -450,6 +451,8 @@ confusing to navigate. Replaces the default linear ~undo~ binding.
 
 Doom Themes provides the color theme plus small integrations (a
 flashing mode-line on errors, and better =org-mode= fontification).
+~C-c t~ toggles between ~doom-one~ (dark) and ~doom-ayu-light~
+(light), alternating from whichever theme is currently active.
 
 #+begin_src emacs-lisp
 (setq custom-safe-themes t)
@@ -468,4 +471,22 @@ flashing mode-line on errors, and better =org-mode= fontification).
 
   ;; Corrects (and improves) org-mode's native fontification.
   (doom-themes-org-config))
+
+(defvar my/theme-toggle-list '(doom-one doom-ayu-light)
+  "Themes `my/toggle-theme' alternates between.")
+
+(defun my/toggle-theme ()
+  "Switch between the two themes in `my/theme-toggle-list'.
+Disables whatever theme is currently active first, so themes
+never stack."
+  (interactive)
+  (let* ((current (car custom-enabled-themes))
+         (next (if (eq current (car my/theme-toggle-list))
+                   (cadr my/theme-toggle-list)
+                 (car my/theme-toggle-list))))
+    (mapc #'disable-theme custom-enabled-themes)
+    (load-theme next t)
+    (message "Theme: %s" next)))
+
+(global-set-key (kbd "C-c t") #'my/toggle-theme)
 #+end_src
