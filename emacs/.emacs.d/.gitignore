@@ -4,4 +4,4 @@ auto-save-list/
 *.elc
 transient/history.el
 url/
-
+history
