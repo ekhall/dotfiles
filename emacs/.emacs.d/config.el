@@ -27,7 +27,7 @@
   (set-face-attribute
    'default nil
    :family (or mono-font (face-attribute 'default :family))
-   :height (if (string-prefix-p "KevinsMacStudio" (system-name)) 160 140)))
+   :height (if (string-prefix-p "KevinsMacStudio" (system-name)) 180 160)))
 ;; Fonts:1 ends here
 
 ;; [[file:config.org::*Networking][Networking:1]]

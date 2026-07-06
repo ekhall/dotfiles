@@ -7,5 +7,5 @@
 (setq buffer-name-history '("config.org"))
 (setq yes-or-no-p-history '("yes"))
 (setq minibuffer-history '("doom-one" "marginalia" "orderless" "vertico" "doom-themes"))
-(setq file-name-history '("~/dotfiles/" "~/.emacs.d/config.org" "~/.emacs.d/init.el" "~/.emacs.d/config.org" "~/.emacs.d/" "~/.emacs.d/config.org" "~/.emacs.d/custom.el" "~/.emacs.d/" "~/.emacs.d/init.el"))
-(setq extended-command-history '("magit" "load-theme" "package-install" "package-upgrade-all" "package-refresh-contents" "package-install" "package-refresh-contents"))
+(setq file-name-history '("~/dotfiles/emacs/.emacs.d/config.org" "~/dotfiles/" "~/.emacs.d/config.org" "~/.emacs.d/init.el" "~/.emacs.d/config.org" "~/.emacs.d/" "~/.emacs.d/config.org" "~/.emacs.d/custom.el" "~/.emacs.d/" "~/.emacs.d/init.el"))
+(setq extended-command-history '("help-with-tutorial" "magit" "load-theme" "package-install" "package-upgrade-all" "package-refresh-contents" "package-install" "package-refresh-contents"))
