@@ -67,6 +67,11 @@
 
 ;; [[file:config.org::*Consult][Consult:1]]
 (use-package consult
+  :init
+  ;; Populates consult-buffer's "File" section with recently opened
+  ;; files -- without this, recentf-mode is off by default and that
+  ;; section stays empty.
+  (recentf-mode 1)
   :bind
   (("C-x b" . consult-buffer)
    ("M-g g" . consult-goto-line)
@@ -209,7 +214,7 @@
         doom-themes-enable-italic t)
 
   ;; Load the theme (choose your favorite).
-  (load-theme 'doom-badger t)
+  (load-theme 'doom-monokai-octagon t)
 
   ;; Enable flashing mode-line on errors.
   (doom-themes-visual-bell-config)
@@ -217,7 +222,7 @@
   ;; Corrects (and improves) org-mode's native fontification.
   (doom-themes-org-config))
 
-(defvar my/theme-toggle-list '(doom-badger doom-ayu-light)
+(defvar my/theme-toggle-list '(doom-monokai-octagon doom-ayu-light)
   "Themes `my/toggle-theme' alternates between.")
 
 (defun my/toggle-theme ()
@@ -235,3 +240,9 @@ never stack."
 
 (global-set-key (kbd "C-c t") #'my/toggle-theme)
 ;; Themes:1 ends here
+
+;; [[file:config.org::*Mode Line][Mode Line:1]]
+(use-package mood-line
+  :config
+  (mood-line-mode))
+;; Mode Line:1 ends here

@@ -10,7 +10,7 @@ export. Update it whenever a keybinding below changes.
 | Key             | Command               | Notes                                     |
 |-----------------+-----------------------+-------------------------------------------|
 | C-c r           | (reload config)       | re-tangles + reloads config.org           |
-| C-c t           | my/toggle-theme       | toggle doom-one / doom-ayu-light          |
+| C-c t           | my/toggle-theme       | toggle doom-monokai-octagon / doom-ayu-light |
 | C-x b           | consult-buffer        | enhanced switch-to-buffer                 |
 | M-g g           | consult-goto-line     | enhanced goto-line                        |
 | M-g i           | consult-imenu         | enhanced imenu                            |
@@ -205,6 +205,11 @@ ripgrep (~consult-ripgrep~).
 
 #+begin_src emacs-lisp
 (use-package consult
+  :init
+  ;; Populates consult-buffer's "File" section with recently opened
+  ;; files -- without this, recentf-mode is off by default and that
+  ;; section stays empty.
+  (recentf-mode 1)
   :bind
   (("C-x b" . consult-buffer)
    ("M-g g" . consult-goto-line)
@@ -451,8 +456,9 @@ confusing to navigate. Replaces the default linear ~undo~ binding.
 
 Doom Themes provides the color theme plus small integrations (a
 flashing mode-line on errors, and better =org-mode= fontification).
-~C-c t~ toggles between ~doom-one~ (dark) and ~doom-ayu-light~
-(light), alternating from whichever theme is currently active.
+~C-c t~ toggles between ~doom-monokai-octagon~ (dark) and
+~doom-ayu-light~ (light), alternating from whichever theme is
+currently active.
 
 #+begin_src emacs-lisp
 (setq custom-safe-themes t)
@@ -464,7 +470,7 @@ flashing mode-line on errors, and better =org-mode= fontification).
         doom-themes-enable-italic t)
 
   ;; Load the theme (choose your favorite).
-  (load-theme 'doom-badger t)
+  (load-theme 'doom-monokai-octagon t)
 
   ;; Enable flashing mode-line on errors.
   (doom-themes-visual-bell-config)
@@ -472,7 +478,7 @@ flashing mode-line on errors, and better =org-mode= fontification).
   ;; Corrects (and improves) org-mode's native fontification.
   (doom-themes-org-config))
 
-(defvar my/theme-toggle-list '(doom-badger doom-ayu-light)
+(defvar my/theme-toggle-list '(doom-monokai-octagon doom-ayu-light)
   "Themes `my/toggle-theme' alternates between.")
 
 (defun my/toggle-theme ()
@@ -489,4 +495,14 @@ never stack."
     (message "Theme: %s" next)))
 
 (global-set-key (kbd "C-c t") #'my/toggle-theme)
+#+end_src
+
+* Mode Line
+
+A lightweight, no-dependency replacement for the default mode line.
+
+#+begin_src emacs-lisp
+(use-package mood-line
+  :config
+  (mood-line-mode))
 #+end_src
