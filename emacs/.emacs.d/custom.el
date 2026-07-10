@@ -16,7 +16,8 @@
  ;; If there is more than one, they won't work right.
  '(package-selected-packages
    '(adwaita-dark-theme avy cape compat corfu doom-themes embark-consult
-			god-mode magit marginalia mood-line orderless
+			god-mode magit marginalia mixed-pitch
+			mood-line olivetti orderless org-modern
 			rainbow-delimiters vertico vundo)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.

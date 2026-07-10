@@ -23,15 +23,30 @@
 
 ;; [[file:config.org::*Fonts][Fonts:1]]
 (defun my/apply-font-settings ()
-  "Set the default face family and height for this machine.
+  "Set the default and variable-pitch face families for this machine.
 Must run with a graphical frame live: in a daemon session
-`font-family-list' is empty until a frame connects to a display."
+`font-family-list' is empty until a frame connects to a display.
+
+The `variable-pitch' face is the proportional face `mixed-pitch'
+switches prose body text to (see `prose-mode'); we point it at
+Apple's San Francisco text face when present. \"SF Pro Text\" is the
+body-optimized cut (as opposed to \"SF Pro Display\" for headline
+sizes); the umbrella \"SF Pro\" name does not resolve, so the specific
+cuts are named. When neither is installed the face is left alone,
+falling back to its default \"Sans Serif\"."
   (let ((mono-font (seq-find (lambda (f) (member f (font-family-list)))
-                             '("SF Mono" "Menlo" "JetBrainsMono Nerd Font"))))
+                             '("SF Mono" "Menlo" "JetBrainsMono Nerd Font")))
+        (prose-font (seq-find (lambda (f) (member f (font-family-list)))
+                              '("SF Pro Text" "SF Pro Display"))))
     (set-face-attribute
      'default nil
      :family (or mono-font (face-attribute 'default :family))
-     :height (if (string-prefix-p "KevinsMacStudio" (system-name)) 180 130))))
+     :height (if (string-prefix-p "KevinsMacStudio" (system-name)) 180 130))
+    (when prose-font
+      ;; Family only: leaving :height unspecified lets variable-pitch
+      ;; inherit the per-machine default height above, so `prose-mode's
+      ;; text-scale bump still applies on top.
+      (set-face-attribute 'variable-pitch nil :family prose-font))))
 
 (if (daemonp)
     (add-hook 'server-after-make-frame-hook #'my/apply-font-settings)
@@ -44,7 +59,16 @@ Must run with a graphical frame live: in a daemon session
 ;; Networking:1 ends here
 
 ;; [[file:config.org::*Custom Keybindings][Custom Keybindings:1]]
-(global-set-key (kbd "C-c r") (lambda () (interactive) (load-file user-init-file)))
+(defun my/reload-config ()
+  "Reload the Emacs configuration without restarting the daemon.
+Loads `user-init-file', which reloads `custom.el' and re-tangles
+and loads `config.org'.  Additive only: removed settings are not
+undone until a full restart."
+  (interactive)
+  (load-file user-init-file)
+  (message "Config reloaded from %s" (abbreviate-file-name user-init-file)))
+
+(global-set-key (kbd "C-c r") #'my/reload-config)
 ;; Custom Keybindings:1 ends here
 
 ;; [[file:config.org::*Which-Key][Which-Key:1]]
@@ -212,6 +236,55 @@ Must run with a graphical frame live: in a daemon session
   ("C-x u" . vundo))
 ;; Vundo:1 ends here
 
+;; [[file:config.org::*Prose Writing][Prose Writing:1]]
+(use-package olivetti
+  :custom
+  (olivetti-body-width 66))
+
+(use-package mixed-pitch)
+
+(use-package org-modern)
+;; Prose Writing:1 ends here
+
+;; [[file:config.org::*Prose Writing][Prose Writing:2]]
+(defvar my/prose-text-scale
+  (if (string-prefix-p "KevinsMacStudio" (system-name)) 0 1)
+  "Extra `text-scale' steps `prose-mode' applies to the buffer.
+Each step scales the buffer font by `text-scale-mode-step' (1.2x
+by default).  KevinsMacStudio already runs a large 18pt default
+face and gets no bump; framework gets one step over its ~13pt.")
+
+(define-minor-mode prose-mode
+  "Toggle a distraction-free prose writing environment.
+Enables Olivetti, mixed-pitch, org-modern, soft line wrapping,
+typewriter-style centered scrolling, and a buffer-local font bump
+of `my/prose-text-scale' steps -- all in the current buffer only."
+  :init-value nil
+  :lighter " Prose"
+  (if prose-mode
+      (progn
+        (olivetti-mode 1)
+        (mixed-pitch-mode 1)
+        (org-modern-mode 1)
+        (visual-line-mode 1)
+        (text-scale-set my/prose-text-scale)
+        (setq-local line-spacing 0.3
+                    scroll-conservatively 101
+                    maximum-scroll-margin 0.5
+                    scroll-margin 99999))
+    (olivetti-mode -1)
+    (mixed-pitch-mode -1)
+    (org-modern-mode -1)
+    (visual-line-mode -1)
+    (text-scale-set 0)
+    (kill-local-variable 'line-spacing)
+    (kill-local-variable 'scroll-conservatively)
+    (kill-local-variable 'maximum-scroll-margin)
+    (kill-local-variable 'scroll-margin)))
+
+(global-set-key (kbd "C-c w") #'prose-mode)
+;; Prose Writing:2 ends here
+
 ;; [[file:config.org::*Themes][Themes:1]]
 (setq custom-safe-themes t)
 (use-package adwaita-dark-theme
@@ -255,5 +328,28 @@ never stack."
 ;; [[file:config.org::*Mode Line][Mode Line:1]]
 (use-package mood-line
   :config
+  (defun mood-line-segment-prose ()
+    "Mode-line indicator shown only while `prose-mode' is active."
+    (when (bound-and-true-p prose-mode)
+      (propertize "✍ Prose" 'face 'mood-line-status-info)))
+
+  (setq mood-line-format
+        (mood-line-defformat
+         :left
+         (((mood-line-segment-modal)                  . " ")
+          ((or (mood-line-segment-buffer-status) " ") . " ")
+          ((mood-line-segment-buffer-name)            . "  ")
+          ((mood-line-segment-anzu)                   . "  ")
+          ((mood-line-segment-multiple-cursors)       . "  ")
+          ((mood-line-segment-cursor-position)        . " ")
+          (mood-line-segment-scroll))
+         :right
+         (((mood-line-segment-prose)      . "  ")
+          ((mood-line-segment-vc)         . "  ")
+          ((mood-line-segment-major-mode) . "  ")
+          ((mood-line-segment-misc-info)  . "  ")
+          ((mood-line-segment-checker)    . "  ")
+          ((mood-line-segment-process)    . "  "))))
+
   (mood-line-mode))
 ;; Mode Line:1 ends here

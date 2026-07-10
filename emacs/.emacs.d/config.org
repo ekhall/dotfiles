@@ -9,8 +9,9 @@ export. Update it whenever a keybinding below changes.
 
 | Key             | Command               | Notes                                     |
 |-----------------+-----------------------+-------------------------------------------|
-| C-c r           | (reload config)       | re-tangles + reloads config.org           |
+| C-c r           | my/reload-config      | re-tangles + reloads config.org           |
 | C-c t           | my/toggle-theme       | toggle adwaita-dark / doom-ayu-light      |
+| C-c w           | prose-mode            | toggle distraction-free prose writing     |
 | C-x b           | consult-buffer        | enhanced switch-to-buffer                 |
 | M-g g           | consult-goto-line     | enhanced goto-line                        |
 | M-g i           | consult-imenu         | enhanced imenu                            |
@@ -117,6 +118,12 @@ display needs 180 / 18pt to look the same size. ~system-name~
 distinguishes them so one ~config.org~ can serve both without
 editing this on every pull.
 
+The same function also sets the proportional ~variable-pitch~ face --
+used for prose body text in ~prose-mode~ (see [[*Prose Writing][Prose Writing]]) -- to
+Apple's San Francisco text cut when installed. Both machines have SF
+Pro, so prose looks consistent across them, and it degrades
+gracefully to the generic sans elsewhere.
+
 Daemon sessions can't do this at init time: the daemon starts with
 no display, so ~font-family-list~ is empty and the default face's
 family is meaningless -- baking those in is what garbled fonts in
@@ -126,15 +133,30 @@ exists (re-running per frame is idempotent and cheap).
 
 #+begin_src emacs-lisp
 (defun my/apply-font-settings ()
-  "Set the default face family and height for this machine.
+  "Set the default and variable-pitch face families for this machine.
 Must run with a graphical frame live: in a daemon session
-`font-family-list' is empty until a frame connects to a display."
+`font-family-list' is empty until a frame connects to a display.
+
+The `variable-pitch' face is the proportional face `mixed-pitch'
+switches prose body text to (see `prose-mode'); we point it at
+Apple's San Francisco text face when present. \"SF Pro Text\" is the
+body-optimized cut (as opposed to \"SF Pro Display\" for headline
+sizes); the umbrella \"SF Pro\" name does not resolve, so the specific
+cuts are named. When neither is installed the face is left alone,
+falling back to its default \"Sans Serif\"."
   (let ((mono-font (seq-find (lambda (f) (member f (font-family-list)))
-                             '("SF Mono" "Menlo" "JetBrainsMono Nerd Font"))))
+                             '("SF Mono" "Menlo" "JetBrainsMono Nerd Font")))
+        (prose-font (seq-find (lambda (f) (member f (font-family-list)))
+                              '("SF Pro Text" "SF Pro Display"))))
     (set-face-attribute
      'default nil
      :family (or mono-font (face-attribute 'default :family))
-     :height (if (string-prefix-p "KevinsMacStudio" (system-name)) 180 130))))
+     :height (if (string-prefix-p "KevinsMacStudio" (system-name)) 180 130))
+    (when prose-font
+      ;; Family only: leaving :height unspecified lets variable-pitch
+      ;; inherit the per-machine default height above, so `prose-mode's
+      ;; text-scale bump still applies on top.
+      (set-face-attribute 'variable-pitch nil :family prose-font))))
 
 (if (daemonp)
     (add-hook 'server-after-make-frame-hook #'my/apply-font-settings)
@@ -153,12 +175,31 @@ downloads) when it exists at this path.
 
 * Custom Keybindings
 
-~C-c r~ reloads the configuration without restarting Emacs. Since
-~user-init-file~ is ~init.el~, this re-tangles and re-loads
-~config.org~ as well.
+~C-c r~ reloads the configuration without restarting Emacs. It
+loads ~user-init-file~ (~init.el~), which reloads ~custom.el~ and
+then runs ~org-babel-load-file~ on ~config.org~ -- re-tangling it
+to ~config.el~ (only when the org file is newer) and loading the
+result into the running daemon. This is a named command rather
+than an anonymous lambda so it is discoverable via ~M-x~ and
+which-key, and self-documenting in this table.
+
+Note this is an *additive* reload: it applies settings you add or
+change, but does not undo things you remove (a deleted keybinding,
+hook, or ~(mode 1)~ persists in the running image). For a
+guaranteed-clean state, restart the daemon:
+~systemctl --user restart emacs~.
 
 #+begin_src emacs-lisp
-(global-set-key (kbd "C-c r") (lambda () (interactive) (load-file user-init-file)))
+(defun my/reload-config ()
+  "Reload the Emacs configuration without restarting the daemon.
+Loads `user-init-file', which reloads `custom.el' and re-tangles
+and loads `config.org'.  Additive only: removed settings are not
+undone until a full restart."
+  (interactive)
+  (load-file user-init-file)
+  (message "Config reloaded from %s" (abbreviate-file-name user-init-file)))
+
+(global-set-key (kbd "C-c r") #'my/reload-config)
 #+end_src
 
 * Discoverability
@@ -467,6 +508,106 @@ confusing to navigate. Replaces the default linear ~undo~ binding.
   ("C-x u" . vundo))
 #+end_src
 
+* Prose Writing
+
+A distraction-free environment for long-form prose (a book, essays),
+loosely modeled on Ulysses on macOS. Rather than hooking these into
+every =org-mode= buffer -- which would drag agenda files, notes, and
+this config itself into proportional fonts and a narrow column -- they
+are bundled into a single ~prose-mode~ minor mode you toggle on
+demand with ~C-c w~, or auto-enable per file with a "Local Variables"
+footer (see below).
+
+Three packages supply the pieces:
+
+- *Olivetti* narrows and centers the text to a fixed column, the way
+  Ulysses frames the page. ~olivetti-body-width~ is the column width
+  in characters; 66 sits in the classic 45--75 "measure" for
+  comfortable prose (80 reads long -- that's really a code width).
+- *mixed-pitch* switches body text to a proportional font while
+  keeping tables, code, and other fixed-pitch faces monospaced -- so
+  prose reads like a book but structure stays aligned.
+- *org-modern* restyles headings, lists, and markup for a cleaner,
+  less-marked-up look.
+
+#+begin_src emacs-lisp
+(use-package olivetti
+  :custom
+  (olivetti-body-width 66))
+
+(use-package mixed-pitch)
+
+(use-package org-modern)
+#+end_src
+
+~prose-mode~ turns all three on together, plus soft line wrapping
+(~visual-line-mode~) and typewriter-style scrolling that keeps the
+current line near the vertical center (~scroll-conservatively~ with a
+half-window ~maximum-scroll-margin~). Toggling it back off restores
+each minor mode and clears the buffer-local scroll/spacing overrides
+with ~kill-local-variable~, so the buffer returns to ordinary editing
+rather than leaving stray locals behind.
+
+Prose also runs one step larger than the default face via
+~text-scale~ (buffer-local, so it never touches other buffers). The
+Mac Studio already opens at an 18pt default, so it gets no bump;
+=framework=, at ~13pt, gets a single ~text-scale-mode-step~ (~1.2x)
+for a slightly more comfortable reading size. Because it is a
+per-buffer zoom rather than a global font change, ~C-x C-=~ / ~C-x
+C--~ still nudge it further while you write.
+
+#+begin_src emacs-lisp
+(defvar my/prose-text-scale
+  (if (string-prefix-p "KevinsMacStudio" (system-name)) 0 1)
+  "Extra `text-scale' steps `prose-mode' applies to the buffer.
+Each step scales the buffer font by `text-scale-mode-step' (1.2x
+by default).  KevinsMacStudio already runs a large 18pt default
+face and gets no bump; framework gets one step over its ~13pt.")
+
+(define-minor-mode prose-mode
+  "Toggle a distraction-free prose writing environment.
+Enables Olivetti, mixed-pitch, org-modern, soft line wrapping,
+typewriter-style centered scrolling, and a buffer-local font bump
+of `my/prose-text-scale' steps -- all in the current buffer only."
+  :init-value nil
+  :lighter " Prose"
+  (if prose-mode
+      (progn
+        (olivetti-mode 1)
+        (mixed-pitch-mode 1)
+        (org-modern-mode 1)
+        (visual-line-mode 1)
+        (text-scale-set my/prose-text-scale)
+        (setq-local line-spacing 0.3
+                    scroll-conservatively 101
+                    maximum-scroll-margin 0.5
+                    scroll-margin 99999))
+    (olivetti-mode -1)
+    (mixed-pitch-mode -1)
+    (org-modern-mode -1)
+    (visual-line-mode -1)
+    (text-scale-set 0)
+    (kill-local-variable 'line-spacing)
+    (kill-local-variable 'scroll-conservatively)
+    (kill-local-variable 'maximum-scroll-margin)
+    (kill-local-variable 'scroll-margin)))
+
+(global-set-key (kbd "C-c w") #'prose-mode)
+#+end_src
+
+To have a specific manuscript open straight into ~prose-mode~, add a
+file-local footer as the *last* lines of that ~.org~ file:
+
+#+begin_example
+# Local Variables:
+# eval: (prose-mode 1)
+# End:
+#+end_example
+
+Emacs will offer to mark the ~eval~ form safe the first time you open
+the file; accept it and the mode activates automatically on every
+visit thereafter -- while leaving every other Org file untouched.
+
 * Themes
 
 Doom Themes provides the color theme plus small integrations (a
@@ -518,8 +659,39 @@ never stack."
 
 A lightweight, no-dependency replacement for the default mode line.
 
+mood-line deliberately omits minor-mode lighters, so ~prose-mode~'s
+~" Prose"~ lighter would never appear. Since that mode substantially
+changes how a buffer looks and behaves, we add a small custom segment
+that surfaces it: ~mood-line-segment-prose~ returns an indicator only
+while ~prose-mode~ is active (and nil otherwise, so mood-line drops
+the segment and its separator entirely). It is spliced into a copy of
+the default format on the right side, just before the major mode.
+
 #+begin_src emacs-lisp
 (use-package mood-line
   :config
+  (defun mood-line-segment-prose ()
+    "Mode-line indicator shown only while `prose-mode' is active."
+    (when (bound-and-true-p prose-mode)
+      (propertize "✍ Prose" 'face 'mood-line-status-info)))
+
+  (setq mood-line-format
+        (mood-line-defformat
+         :left
+         (((mood-line-segment-modal)                  . " ")
+          ((or (mood-line-segment-buffer-status) " ") . " ")
+          ((mood-line-segment-buffer-name)            . "  ")
+          ((mood-line-segment-anzu)                   . "  ")
+          ((mood-line-segment-multiple-cursors)       . "  ")
+          ((mood-line-segment-cursor-position)        . " ")
+          (mood-line-segment-scroll))
+         :right
+         (((mood-line-segment-prose)      . "  ")
+          ((mood-line-segment-vc)         . "  ")
+          ((mood-line-segment-major-mode) . "  ")
+          ((mood-line-segment-misc-info)  . "  ")
+          ((mood-line-segment-checker)    . "  ")
+          ((mood-line-segment-process)    . "  "))))
+
   (mood-line-mode))
 #+end_src
