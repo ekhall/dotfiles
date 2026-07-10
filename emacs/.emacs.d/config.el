@@ -14,6 +14,7 @@
 (menu-bar-mode -1)
 (tool-bar-mode -1)
 (setq visible-bell t)
+(setq use-short-answers t)
 (if (string-prefix-p "KevinsMacStudio" (system-name))
     (progn
       (add-to-list 'default-frame-alist '(width . 100))

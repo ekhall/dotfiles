@@ -89,11 +89,17 @@ height below: the Linux box keeps its original 45-line-tall default
 (width unspecified), while ~KevinsMacStudio~ opens at 100x60
 characters.
 
+~use-short-answers~ (Emacs 28+) makes every ~yes-or-no-p~ prompt
+accept a single ~y~/~n~ keypress instead of a typed-out "yes"/"no"
+followed by ~RET~ -- the modern replacement for the old
+~(defalias 'yes-or-no-p 'y-or-n-p)~ trick.
+
 #+begin_src emacs-lisp
 (setq inhibit-startup-message t)
 (menu-bar-mode -1)
 (tool-bar-mode -1)
 (setq visible-bell t)
+(setq use-short-answers t)
 (if (string-prefix-p "KevinsMacStudio" (system-name))
     (progn
       (add-to-list 'default-frame-alist '(width . 100))
