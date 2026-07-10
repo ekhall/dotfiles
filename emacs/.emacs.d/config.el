@@ -285,6 +285,19 @@ of `my/prose-text-scale' steps -- all in the current buffer only."
 (global-set-key (kbd "C-c w") #'prose-mode)
 ;; Prose Writing:2 ends here
 
+;; [[file:config.org::*Folding a Section From Its Body][Folding a Section From Its Body:1]]
+(defun my/org-fold-current-subtree ()
+  "Fold the subtree containing point and move to its heading.
+Works from inside an entry's body text, not just on the heading
+line the way plain `TAB' / `org-cycle' require."
+  (interactive)
+  (org-back-to-heading t)
+  (org-fold-hide-subtree))
+
+(with-eval-after-load 'org
+  (define-key org-mode-map (kbd "C-c f") #'my/org-fold-current-subtree))
+;; Folding a Section From Its Body:1 ends here
+
 ;; [[file:config.org::*Themes][Themes:1]]
 (setq custom-safe-themes t)
 (use-package adwaita-dark-theme

@@ -12,6 +12,7 @@ export. Update it whenever a keybinding below changes.
 | C-c r           | my/reload-config      | re-tangles + reloads config.org           |
 | C-c t           | my/toggle-theme       | toggle adwaita-dark / doom-ayu-light      |
 | C-c w           | prose-mode            | toggle distraction-free prose writing     |
+| C-c f           | my/org-fold-current-subtree | fold section from its body (Org only) |
 | C-x b           | consult-buffer        | enhanced switch-to-buffer                 |
 | M-g g           | consult-goto-line     | enhanced goto-line                        |
 | M-g i           | consult-imenu         | enhanced imenu                            |
@@ -607,6 +608,35 @@ file-local footer as the *last* lines of that ~.org~ file:
 Emacs will offer to mark the ~eval~ form safe the first time you open
 the file; accept it and the mode activates automatically on every
 visit thereafter -- while leaving every other Org file untouched.
+
+** Folding a Section From Its Body
+
+Plain ~TAB~ / ~org-cycle~ only fold when point is *on* the heading
+line, so from inside an entry's body text you would first have to
+jump up to the =*= headline. When drafting long prose you are almost
+always in the body, which makes that round-trip a nuisance.
+
+~my/org-fold-current-subtree~ folds the subtree containing point from
+anywhere inside it, leaving point on the now-folded heading (the body
+it was in is hidden, so landing on the visible headline is the
+predictable result). It is bound to ~C-c f~ in Org buffers only --
+=C-c C-,= is deliberately avoided, as Org binds that to
+~org-insert-structure-template~. The binding is deferred with
+~with-eval-after-load~ because ~org-mode-map~ does not exist until Org
+has loaded.
+
+#+begin_src emacs-lisp
+(defun my/org-fold-current-subtree ()
+  "Fold the subtree containing point and move to its heading.
+Works from inside an entry's body text, not just on the heading
+line the way plain `TAB' / `org-cycle' require."
+  (interactive)
+  (org-back-to-heading t)
+  (org-fold-hide-subtree))
+
+(with-eval-after-load 'org
+  (define-key org-mode-map (kbd "C-c f") #'my/org-fold-current-subtree))
+#+end_src
 
 * Themes
 
