@@ -10,7 +10,7 @@ export. Update it whenever a keybinding below changes.
 | Key             | Command               | Notes                                     |
 |-----------------+-----------------------+-------------------------------------------|
 | C-c r           | (reload config)       | re-tangles + reloads config.org           |
-| C-c t           | my/toggle-theme       | toggle doom-monokai-octagon / doom-ayu-light |
+| C-c t           | my/toggle-theme       | toggle adwaita-dark / doom-ayu-light      |
 | C-x b           | consult-buffer        | enhanced switch-to-buffer                 |
 | M-g g           | consult-goto-line     | enhanced goto-line                        |
 | M-g i           | consult-imenu         | enhanced imenu                            |
@@ -99,31 +99,46 @@ characters.
 ** Fonts
 
 Try SF Mono first, then Menlo (macOS's own default monospace,
-always present), then whatever Emacs already resolves to. SF Mono
-is bundled *inside* apps like Xcode and Terminal but isn't
+always present), then JetBrainsMono Nerd Font (Omarchy's default
+mono on ~framework~), then whatever Emacs already resolves to. SF
+Mono is bundled *inside* apps like Xcode and Terminal but isn't
 registered as a system font other apps can look up by name unless
 it's separately installed (Apple distributes it standalone at
 [[https://developer.apple.com/fonts/]]) -- so on a fresh machine
 ~(member "SF Mono" (font-family-list))~ comes back nil and this
-falls through to Menlo, which is why the family previously silently
-stayed at Emacs's built-in default.
+falls through to the next candidate.
 
 Critically, the height is set unconditionally, outside any font-
 family check -- previously it was set only inside the ~when~ guard
 above, so on a machine without SF Mono registered, the size never
 applied either. Height is per-machine: this config is shared
-between a Linux box (where 140 / 14pt reads correctly) and
-~KevinsMacStudio~, whose display needs 160 / 16pt to look the same
-size. ~system-name~ distinguishes them so one ~config.org~ can serve
-both without editing this on every pull.
+between ~framework~ (130 / 13pt) and ~KevinsMacStudio~, whose
+display needs 180 / 18pt to look the same size. ~system-name~
+distinguishes them so one ~config.org~ can serve both without
+editing this on every pull.
+
+Daemon sessions can't do this at init time: the daemon starts with
+no display, so ~font-family-list~ is empty and the default face's
+family is meaningless -- baking those in is what garbled fonts in
+~emacsclient~ frames. Under ~daemonp~, defer to
+~server-after-make-frame-hook~, which runs once a real frame
+exists (re-running per frame is idempotent and cheap).
 
 #+begin_src emacs-lisp
-(let ((mono-font (seq-find (lambda (f) (member f (font-family-list)))
-                           '("SF Mono" "Menlo"))))
-  (set-face-attribute
-   'default nil
-   :family (or mono-font (face-attribute 'default :family))
-   :height (if (string-prefix-p "KevinsMacStudio" (system-name)) 180 160)))
+(defun my/apply-font-settings ()
+  "Set the default face family and height for this machine.
+Must run with a graphical frame live: in a daemon session
+`font-family-list' is empty until a frame connects to a display."
+  (let ((mono-font (seq-find (lambda (f) (member f (font-family-list)))
+                             '("SF Mono" "Menlo" "JetBrainsMono Nerd Font"))))
+    (set-face-attribute
+     'default nil
+     :family (or mono-font (face-attribute 'default :family))
+     :height (if (string-prefix-p "KevinsMacStudio" (system-name)) 180 130))))
+
+(if (daemonp)
+    (add-hook 'server-after-make-frame-hook #'my/apply-font-settings)
+  (my/apply-font-settings))
 #+end_src
 
 ** Networking
@@ -456,12 +471,14 @@ confusing to navigate. Replaces the default linear ~undo~ binding.
 
 Doom Themes provides the color theme plus small integrations (a
 flashing mode-line on errors, and better =org-mode= fontification).
-~C-c t~ toggles between ~doom-monokai-octagon~ (dark) and
-~doom-ayu-light~ (light), alternating from whichever theme is
-currently active.
+~C-c t~ toggles between ~adwaita-dark~ (dark) and ~doom-ayu-light~
+(light), alternating from whichever theme is currently active.
 
 #+begin_src emacs-lisp
 (setq custom-safe-themes t)
+(use-package adwaita-dark-theme
+  :ensure t)
+
 (use-package doom-themes
   :ensure t
   :config
@@ -470,7 +487,7 @@ currently active.
         doom-themes-enable-italic t)
 
   ;; Load the theme (choose your favorite).
-  (load-theme 'doom-monokai-octagon t)
+  (load-theme 'adwaita-dark t)
 
   ;; Enable flashing mode-line on errors.
   (doom-themes-visual-bell-config)
@@ -478,7 +495,7 @@ currently active.
   ;; Corrects (and improves) org-mode's native fontification.
   (doom-themes-org-config))
 
-(defvar my/theme-toggle-list '(doom-monokai-octagon doom-ayu-light)
+(defvar my/theme-toggle-list '(adwaita-dark doom-ayu-light)
   "Themes `my/toggle-theme' alternates between.")
 
 (defun my/toggle-theme ()

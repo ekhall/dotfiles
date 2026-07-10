@@ -22,12 +22,20 @@
 ;; Basic UI and Startup Behavior:1 ends here
 
 ;; [[file:config.org::*Fonts][Fonts:1]]
-(let ((mono-font (seq-find (lambda (f) (member f (font-family-list)))
-                           '("SF Mono" "Menlo"))))
-  (set-face-attribute
-   'default nil
-   :family (or mono-font (face-attribute 'default :family))
-   :height (if (string-prefix-p "KevinsMacStudio" (system-name)) 180 160)))
+(defun my/apply-font-settings ()
+  "Set the default face family and height for this machine.
+Must run with a graphical frame live: in a daemon session
+`font-family-list' is empty until a frame connects to a display."
+  (let ((mono-font (seq-find (lambda (f) (member f (font-family-list)))
+                             '("SF Mono" "Menlo" "JetBrainsMono Nerd Font"))))
+    (set-face-attribute
+     'default nil
+     :family (or mono-font (face-attribute 'default :family))
+     :height (if (string-prefix-p "KevinsMacStudio" (system-name)) 180 130))))
+
+(if (daemonp)
+    (add-hook 'server-after-make-frame-hook #'my/apply-font-settings)
+  (my/apply-font-settings))
 ;; Fonts:1 ends here
 
 ;; [[file:config.org::*Networking][Networking:1]]
@@ -206,6 +214,9 @@
 
 ;; [[file:config.org::*Themes][Themes:1]]
 (setq custom-safe-themes t)
+(use-package adwaita-dark-theme
+  :ensure t)
+
 (use-package doom-themes
   :ensure t
   :config
@@ -214,7 +225,7 @@
         doom-themes-enable-italic t)
 
   ;; Load the theme (choose your favorite).
-  (load-theme 'doom-monokai-octagon t)
+  (load-theme 'adwaita-dark t)
 
   ;; Enable flashing mode-line on errors.
   (doom-themes-visual-bell-config)
@@ -222,7 +233,7 @@
   ;; Corrects (and improves) org-mode's native fontification.
   (doom-themes-org-config))
 
-(defvar my/theme-toggle-list '(doom-monokai-octagon doom-ayu-light)
+(defvar my/theme-toggle-list '(adwaita-dark doom-ayu-light)
   "Themes `my/toggle-theme' alternates between.")
 
 (defun my/toggle-theme ()
