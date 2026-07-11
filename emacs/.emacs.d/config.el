@@ -384,6 +384,53 @@ never stack."
 (defconst my/freshrss-user "hall"
   "FreshRSS account name, used for the Fever URL and auth-source lookup.")
 
+(defun my/elfeed-freshrss-clear-read ()
+  "Mirror FreshRSS read/unread state onto already-downloaded Elfeed entries.
+elfeed-protocol's Fever sync only applies read-state to entries it
+*fetches*, and `G' fetches only new ids -- so articles read on
+another device keep a stale `unread' tag here, and
+`elfeed-protocol-fever-reinit' does not fix it either.
+
+This fetches the Fever `unread_item_ids' set directly and, for
+every local entry carrying a Fever id, adds or removes the
+`unread' tag to match the server -- locally only, via
+`elfeed-tag-1'/`elfeed-untag-1', so nothing is pushed back.  The
+Fever api_key is md5(user:password); the password comes from
+auth-source, never from this file."
+  (interactive)
+  (let* ((host my/freshrss-host) (user my/freshrss-user)
+         (pw (auth-source-pick-first-password :host host :user user))
+         (key (md5 (concat user ":" pw)))
+         (url (format "http://%s/api/fever.php?api&unread_item_ids" host))
+         (url-request-method "POST")
+         (url-request-extra-headers
+          '(("Content-Type" . "application/x-www-form-urlencoded")))
+         (url-request-data (concat "api_key=" key))
+         (unread-set (make-hash-table :test 'eql)))
+    (with-current-buffer (url-retrieve-synchronously url t t 30)
+      (goto-char (point-min))
+      (re-search-forward "\n\n" nil t)
+      (let* ((json (json-parse-buffer :object-type 'alist))
+             (ids (alist-get 'unread_item_ids json)))
+        (unless (eql 1 (alist-get 'auth json))
+          (user-error "FreshRSS Fever auth failed"))
+        (dolist (id (split-string (or ids "") "," t))
+          (puthash (string-to-number id) t unread-set))))
+    (let ((cleared 0) (marked 0))
+      (with-elfeed-db-visit (entry _feed)
+        (let ((id (elfeed-meta entry :id)))
+          (when id
+            (if (gethash id unread-set)
+                (unless (elfeed-tagged-p 'unread entry)
+                  (elfeed-tag-1 entry 'unread) (setq marked (1+ marked)))
+              (when (elfeed-tagged-p 'unread entry)
+                (elfeed-untag-1 entry 'unread) (setq cleared (1+ cleared)))))))
+      (elfeed-db-save)
+      (when (get-buffer "*elfeed-search*")
+        (with-current-buffer "*elfeed-search*" (elfeed-search-update :force)))
+      (message "FreshRSS reconcile: cleared %d read, marked %d unread; %d unread on server"
+               cleared marked (hash-table-count unread-set)))))
+
 (use-package elfeed
   :bind ("C-c e" . elfeed))
 
@@ -400,5 +447,8 @@ never stack."
                     :password (auth-source-pick-first-password
                                :host my/freshrss-host
                                :user my/freshrss-user))))
+  ;; Reconcile read-state from the server, in the Elfeed search buffer
+  ;; (see `G' for the normal incremental fetch of new entries).
+  (define-key elfeed-search-mode-map (kbd "C-c E") #'my/elfeed-freshrss-clear-read)
   (elfeed-protocol-enable))
 ;; Configuration:1 ends here

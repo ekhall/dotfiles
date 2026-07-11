@@ -11,30 +11,31 @@ tangles unaffected). Unlike the old ~#+BEGIN_COMMENT~ block, the table
 here is a *live* Org table -- realign it any time with ~TAB~ or ~C-c
 C-c~. Update it whenever a keybinding below changes.
 
-| Key             | Command                     | Notes                                         |
-|-----------------+-----------------------------+-----------------------------------------------|
-| C-c r           | my/reload-config            | re-tangles + reloads config.org               |
-| C-c t           | my/toggle-theme             | toggle adwaita-dark / doom-ayu-light          |
-| C-c w           | prose-mode                  | toggle distraction-free prose writing         |
-| C-c f           | my/org-fold-current-subtree | fold section from its body (Org only)         |
-| C-x b           | consult-buffer              | enhanced switch-to-buffer                     |
-| M-g g           | consult-goto-line           | enhanced goto-line                            |
-| M-g i           | consult-imenu               | enhanced imenu                                |
-| M-s l           | consult-line                | search current buffer                         |
-| M-s r           | consult-ripgrep             | grep project (needs ripgrep)                  |
-| C-.             | embark-act                  | contextual actions at point/candidate         |
-| C-,             | embark-dwim                 | default Embark action                         |
-| C-h B           | embark-bindings             | list bindings via Embark                      |
-| M-A             | marginalia-cycle            | cycle annotation style (in minibuffer)        |
-| C-;             | avy-goto-char-timer         | jump to chars, type until you pause           |
-| C-:             | avy-goto-char-2             | jump to an exact 2-char match                 |
-| M-g w           | avy-goto-word-1             | jump to a word                                |
-| M-g l           | avy-goto-line               | jump to a line                                |
-| Caps Lock, tap  | god-mode-all                | toggle God mode (via keyd; see Modal Editing) |
-| Caps Lock, hold | Control                     | via keyd overload, works system-wide          |
-| C-x g           | magit-status                | open Magit                                    |
-| C-x u           | vundo                       | visual undo tree (replaces linear undo)       |
-| C-c e           | elfeed                      | open Elfeed (FreshRSS-synced reader)          |
+| Key             | Command                       | Notes                                          |
+|-----------------+-------------------------------+------------------------------------------------|
+| C-c r           | my/reload-config              | re-tangles + reloads config.org                |
+| C-c t           | my/toggle-theme               | toggle adwaita-dark / doom-ayu-light           |
+| C-c w           | prose-mode                    | toggle distraction-free prose writing          |
+| C-c f           | my/org-fold-current-subtree   | fold section from its body (Org only)          |
+| C-x b           | consult-buffer                | enhanced switch-to-buffer                      |
+| M-g g           | consult-goto-line             | enhanced goto-line                             |
+| M-g i           | consult-imenu                 | enhanced imenu                                 |
+| M-s l           | consult-line                  | search current buffer                          |
+| M-s r           | consult-ripgrep               | grep project (needs ripgrep)                   |
+| C-.             | embark-act                    | contextual actions at point/candidate          |
+| C-,             | embark-dwim                   | default Embark action                          |
+| C-h B           | embark-bindings               | list bindings via Embark                       |
+| M-A             | marginalia-cycle              | cycle annotation style (in minibuffer)         |
+| C-;             | avy-goto-char-timer           | jump to chars, type until you pause            |
+| C-:             | avy-goto-char-2               | jump to an exact 2-char match                  |
+| M-g w           | avy-goto-word-1               | jump to a word                                 |
+| M-g l           | avy-goto-line                 | jump to a line                                 |
+| Caps Lock, tap  | god-mode-all                  | toggle God mode (via keyd; see Modal Editing)  |
+| Caps Lock, hold | Control                       | via keyd overload, works system-wide           |
+| C-x g           | magit-status                  | open Magit                                     |
+| C-x u           | vundo                         | visual undo tree (replaces linear undo)        |
+| C-c e           | elfeed                        | open Elfeed (FreshRSS-synced reader)           |
+| C-c E           | my/elfeed-freshrss-clear-read | reconcile read-state from FreshRSS (in Elfeed) |
 
 * Introduction
 
@@ -805,6 +806,15 @@ both the Fever URL and the auth-source lookup. ~C-c e~ opens Elfeed;
 inside it, ~G~ fetches/syncs. Categories (the Feedbin folders) come
 across as Elfeed tags via ~fetch-category-as-tag~.
 
+Fever's incremental ~G~ only fetches *new* entries and only applies
+read-state to what it fetches, so articles read on another device keep
+a stale ~unread~ tag here (and ~elfeed-protocol-fever-reinit~ doesn't
+fix it). ~my/elfeed-freshrss-clear-read~ (bound to ~C-c E~ in the
+Elfeed search buffer) closes that gap: it pulls the server's live
+~unread_item_ids~ set and mirrors it onto the local entries, so
+reading elsewhere finally clears here. Run ~G~ for new articles, ~C-c
+E~ to reconcile what you read on another device.
+
 #+begin_src emacs-lisp
 ;; defconst, not defvar: these are edited in this file and must update
 ;; on `C-c r'.  `defvar' only assigns when the symbol is unbound, so once
@@ -815,6 +825,53 @@ across as Elfeed tags via ~fetch-category-as-tag~.
 
 (defconst my/freshrss-user "hall"
   "FreshRSS account name, used for the Fever URL and auth-source lookup.")
+
+(defun my/elfeed-freshrss-clear-read ()
+  "Mirror FreshRSS read/unread state onto already-downloaded Elfeed entries.
+elfeed-protocol's Fever sync only applies read-state to entries it
+*fetches*, and `G' fetches only new ids -- so articles read on
+another device keep a stale `unread' tag here, and
+`elfeed-protocol-fever-reinit' does not fix it either.
+
+This fetches the Fever `unread_item_ids' set directly and, for
+every local entry carrying a Fever id, adds or removes the
+`unread' tag to match the server -- locally only, via
+`elfeed-tag-1'/`elfeed-untag-1', so nothing is pushed back.  The
+Fever api_key is md5(user:password); the password comes from
+auth-source, never from this file."
+  (interactive)
+  (let* ((host my/freshrss-host) (user my/freshrss-user)
+         (pw (auth-source-pick-first-password :host host :user user))
+         (key (md5 (concat user ":" pw)))
+         (url (format "http://%s/api/fever.php?api&unread_item_ids" host))
+         (url-request-method "POST")
+         (url-request-extra-headers
+          '(("Content-Type" . "application/x-www-form-urlencoded")))
+         (url-request-data (concat "api_key=" key))
+         (unread-set (make-hash-table :test 'eql)))
+    (with-current-buffer (url-retrieve-synchronously url t t 30)
+      (goto-char (point-min))
+      (re-search-forward "\n\n" nil t)
+      (let* ((json (json-parse-buffer :object-type 'alist))
+             (ids (alist-get 'unread_item_ids json)))
+        (unless (eql 1 (alist-get 'auth json))
+          (user-error "FreshRSS Fever auth failed"))
+        (dolist (id (split-string (or ids "") "," t))
+          (puthash (string-to-number id) t unread-set))))
+    (let ((cleared 0) (marked 0))
+      (with-elfeed-db-visit (entry _feed)
+        (let ((id (elfeed-meta entry :id)))
+          (when id
+            (if (gethash id unread-set)
+                (unless (elfeed-tagged-p 'unread entry)
+                  (elfeed-tag-1 entry 'unread) (setq marked (1+ marked)))
+              (when (elfeed-tagged-p 'unread entry)
+                (elfeed-untag-1 entry 'unread) (setq cleared (1+ cleared)))))))
+      (elfeed-db-save)
+      (when (get-buffer "*elfeed-search*")
+        (with-current-buffer "*elfeed-search*" (elfeed-search-update :force)))
+      (message "FreshRSS reconcile: cleared %d read, marked %d unread; %d unread on server"
+               cleared marked (hash-table-count unread-set)))))
 
 (use-package elfeed
   :bind ("C-c e" . elfeed))
@@ -832,5 +889,8 @@ across as Elfeed tags via ~fetch-category-as-tag~.
                     :password (auth-source-pick-first-password
                                :host my/freshrss-host
                                :user my/freshrss-user))))
+  ;; Reconcile read-state from the server, in the Elfeed search buffer
+  ;; (see `G' for the normal incremental fetch of new entries).
+  (define-key elfeed-search-mode-map (kbd "C-c E") #'my/elfeed-freshrss-clear-read)
   (elfeed-protocol-enable))
 #+end_src
