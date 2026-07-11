@@ -367,3 +367,38 @@ never stack."
 
   (mood-line-mode))
 ;; Mode Line:1 ends here
+
+;; [[file:config.org::*Encrypted Files (EasyPG)][Encrypted Files (EasyPG):1]]
+(setq epa-file-encrypt-to '("hall@absinthe.org")
+      epa-file-select-keys nil)
+;; Encrypted Files (EasyPG):1 ends here
+
+;; [[file:config.org::*Configuration][Configuration:1]]
+;; defconst, not defvar: these are edited in this file and must update
+;; on `C-c r'.  `defvar' only assigns when the symbol is unbound, so once
+;; the daemon has a value it ignores later edits until a full restart;
+;; `defconst' reassigns on every load.
+(defconst my/freshrss-host "100.121.73.82"
+  "Host/IP of the FreshRSS instance, as reached over Tailscale.")
+
+(defconst my/freshrss-user "hall"
+  "FreshRSS account name, used for the Fever URL and auth-source lookup.")
+
+(use-package elfeed
+  :bind ("C-c e" . elfeed))
+
+(use-package elfeed-protocol
+  :after elfeed
+  :config
+  (setq elfeed-use-curl t)
+  (setq elfeed-protocol-enabled-protocols '(fever))
+  ;; Bring FreshRSS categories in as Elfeed tags.
+  (setq elfeed-protocol-fever-fetch-category-as-tag t)
+  (setq elfeed-feeds
+        (list (list (format "fever+http://%s@%s" my/freshrss-user my/freshrss-host)
+                    :api-url (format "http://%s/api/fever.php" my/freshrss-host)
+                    :password (auth-source-pick-first-password
+                               :host my/freshrss-host
+                               :user my/freshrss-user))))
+  (elfeed-protocol-enable))
+;; Configuration:1 ends here

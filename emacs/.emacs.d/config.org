@@ -34,6 +34,7 @@ C-c~. Update it whenever a keybinding below changes.
 | Caps Lock, hold | Control                     | via keyd overload, works system-wide          |
 | C-x g           | magit-status                | open Magit                                    |
 | C-x u           | vundo                       | visual undo tree (replaces linear undo)       |
+| C-c e           | elfeed                      | open Elfeed (FreshRSS-synced reader)          |
 
 * Introduction
 
@@ -733,4 +734,103 @@ the default format on the right side, just before the major mode.
           ((mood-line-segment-process)    . "  "))))
 
   (mood-line-mode))
+#+end_src
+
+* Encrypted Files (EasyPG)
+
+Emacs's built-in EasyPG Assistant (~epa-file~, enabled by default)
+transparently *decrypts* any =.gpg= file when opened and *re-encrypts*
+it on save. That -- not any generic save behavior -- is why editing
+=~/.authinfo.gpg= (which holds the FreshRSS Fever password, see
+[[*Elfeed + FreshRSS (synced RSS)][Elfeed + FreshRSS]]) pops up a recipient prompt: encrypting
+needs to know whose key can decrypt the result.
+
+By default it asks on every save. Pointing ~epa-file-encrypt-to~ at my
+own key and setting ~epa-file-select-keys~ to nil (which, per its
+docstring, means "ask only when no recipient is configured") makes it
+encrypt silently to that key. This assumes a personal GPG key for
+=hall@absinthe.org= exists --
+
+: gpg --quick-generate-key "Kevin Hall <hall@absinthe.org>"
+
+-- otherwise saving a =.gpg= file fails with "no public key". The
+lone ExpressVPN key that ships in the keyring is unrelated and must
+not be used as a recipient (its private key isn't ours).
+
+#+begin_src emacs-lisp
+(setq epa-file-encrypt-to '("hall@absinthe.org")
+      epa-file-select-keys nil)
+#+end_src
+
+* Elfeed + FreshRSS (synced RSS)
+
+A feed reader whose read/unread state syncs with the self-hosted
+FreshRSS instance (so what I read here is marked read everywhere):
+[[https://github.com/skeeto/elfeed][Elfeed]] as the reader and
+[[https://github.com/fasheng/elfeed-protocol][elfeed-protocol]] as the
+sync layer, talking to FreshRSS over its *Fever API*. FreshRSS is the
+source of truth for subscriptions -- feeds are managed there, not in
+this file -- and elfeed just mirrors them, pushing read/starred
+changes back immediately.
+
+FreshRSS runs in a Proxmox LXC container and is reached over Tailscale
+(~100.121.73.82~, the container's own tailnet address). Because Tailscale is already WireGuard-encrypted
+end to end, plain HTTP over the tailnet is fine -- no TLS or
+~--insecure~ curl flags needed.
+
+** Secret handling
+
+The Fever API password must *not* live in this file (it is tracked in
+the dotfiles repo). It is read at load time from ~auth-source~
+(=~/.authinfo.gpg=), keyed on the host and user below. Add a line like
+this to =~/.authinfo.gpg= (or =~/.authinfo=):
+
+: machine 100.121.73.82 login YOUR-FRESHRSS-USER password YOUR-FEVER-API-PASSWORD
+
+If the lookup returns nil (password not yet stored) elfeed simply
+won't authenticate until it is added -- nothing here breaks.
+
+** Prerequisites (one-time, in FreshRSS)
+
+1. FreshRSS → Settings → Authentication → tick *Allow API access*.
+2. FreshRSS → Settings → Profile → set an *API password* (this is the
+   Fever password, distinct from the web-login password) and put it in
+   =~/.authinfo.gpg= as above.
+3. Import the OPML into FreshRSS if not already, so it holds the feeds.
+
+** Configuration
+
+~my/freshrss-user~ must be set to the FreshRSS account name; it feeds
+both the Fever URL and the auth-source lookup. ~C-c e~ opens Elfeed;
+inside it, ~G~ fetches/syncs. Categories (the Feedbin folders) come
+across as Elfeed tags via ~fetch-category-as-tag~.
+
+#+begin_src emacs-lisp
+;; defconst, not defvar: these are edited in this file and must update
+;; on `C-c r'.  `defvar' only assigns when the symbol is unbound, so once
+;; the daemon has a value it ignores later edits until a full restart;
+;; `defconst' reassigns on every load.
+(defconst my/freshrss-host "100.121.73.82"
+  "Host/IP of the FreshRSS instance, as reached over Tailscale.")
+
+(defconst my/freshrss-user "hall"
+  "FreshRSS account name, used for the Fever URL and auth-source lookup.")
+
+(use-package elfeed
+  :bind ("C-c e" . elfeed))
+
+(use-package elfeed-protocol
+  :after elfeed
+  :config
+  (setq elfeed-use-curl t)
+  (setq elfeed-protocol-enabled-protocols '(fever))
+  ;; Bring FreshRSS categories in as Elfeed tags.
+  (setq elfeed-protocol-fever-fetch-category-as-tag t)
+  (setq elfeed-feeds
+        (list (list (format "fever+http://%s@%s" my/freshrss-user my/freshrss-host)
+                    :api-url (format "http://%s/api/fever.php" my/freshrss-host)
+                    :password (auth-source-pick-first-password
+                               :host my/freshrss-host
+                               :user my/freshrss-user))))
+  (elfeed-protocol-enable))
 #+end_src
