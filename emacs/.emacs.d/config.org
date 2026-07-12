@@ -881,6 +881,13 @@ auth-source, never from this file."
   :config
   (setq elfeed-use-curl t)
   (setq elfeed-protocol-enabled-protocols '(fever))
+  ;; FreshRSS's Fever API returns microsecond-timestamp item ids, not small
+  ;; sequential integers.  elfeed-protocol's default incremental `update' path
+  ;; requests the next 50 *consecutive* ids after the last seen one, so that
+  ;; window never matches a real item and `G' silently fetches nothing.  The
+  ;; unread-only path fetches by `unread_item_ids' instead, which works with any
+  ;; id format -- so keep this on for FreshRSS.
+  (setq elfeed-protocol-fever-update-unread-only t)
   ;; Bring FreshRSS categories in as Elfeed tags.
   (setq elfeed-protocol-fever-fetch-category-as-tag t)
   (setq elfeed-feeds
