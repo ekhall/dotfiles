@@ -14,7 +14,7 @@ C-c~. Update it whenever a keybinding below changes.
 | Key             | Command                       | Notes                                          |
 |-----------------+-------------------------------+------------------------------------------------|
 | C-c r           | my/reload-config              | re-tangles + reloads config.org                |
-| C-c t           | my/toggle-theme               | toggle adwaita-dark / doom-ayu-light           |
+| C-c t           | my/toggle-theme               | toggle doom-tomorrow-night / -day              |
 | C-c w           | prose-mode                    | toggle distraction-free prose writing          |
 | C-c f           | my/org-fold-current-subtree   | fold section from its body (Org only)          |
 | C-x b           | consult-buffer                | enhanced switch-to-buffer                      |
@@ -36,6 +36,8 @@ C-c~. Update it whenever a keybinding below changes.
 | C-x u           | vundo                         | visual undo tree (replaces linear undo)        |
 | C-c e           | elfeed                        | open Elfeed (FreshRSS-synced reader)           |
 | C-c E           | my/elfeed-freshrss-clear-read | reconcile read-state from FreshRSS (in Elfeed) |
+| M-$             | jinx-correct                  | correct spelling at point (replaces ispell)    |
+| C-M-$           | jinx-languages                | switch Jinx dictionaries                        |
 
 * Introduction
 
@@ -208,6 +210,99 @@ downloads) when it exists at this path.
 #+begin_src emacs-lisp
 (with-eval-after-load 'gnutls
   (add-to-list 'gnutls-trustfiles "/usr/local/etc/openssl/cert.pem"))
+#+end_src
+
+* Themes
+
+Doom Themes provides the color theme plus small integrations (a
+flashing mode-line on errors, and better =org-mode= fontification).
+~C-c t~ toggles between ~doom-tomorrow-night~ (dark, the default) and
+~doom-tomorrow-day~ (light), alternating from whichever theme is
+currently active.
+
+Both themes ship *inside* the ~doom-themes~ package -- there is no
+separate =doom-tomorrow-night= package on MELPA, so trying to
+~:ensure~ one fails with "package is unavailable". The theme is simply
+~load-theme~'d below; ~custom-safe-themes t~ marks every theme trusted
+so ~load-theme~ never stops to prompt.
+
+#+begin_src emacs-lisp
+(setq custom-safe-themes t)
+
+(use-package doom-themes
+  :ensure t
+  :config
+  ;; Global settings (optional).
+  (setq doom-themes-enable-bold t
+        doom-themes-enable-italic t)
+
+  ;; Load the theme (choose your favorite).
+  (load-theme 'doom-tomorrow-night t)
+
+  ;; Enable flashing mode-line on errors.
+  (doom-themes-visual-bell-config)
+
+  ;; Corrects (and improves) org-mode's native fontification.
+  (doom-themes-org-config))
+
+(defvar my/theme-toggle-list '(doom-tomorrow-night doom-tomorrow-day)
+  "Themes `my/toggle-theme' alternates between.")
+
+(defun my/toggle-theme ()
+  "Switch between the two themes in `my/theme-toggle-list'.
+Disables whatever theme is currently active first, so themes
+never stack."
+  (interactive)
+  (let* ((current (car custom-enabled-themes))
+         (next (if (eq current (car my/theme-toggle-list))
+                   (cadr my/theme-toggle-list)
+                 (car my/theme-toggle-list))))
+    (mapc #'disable-theme custom-enabled-themes)
+    (load-theme next t)
+    (message "Theme: %s" next)))
+
+(global-set-key (kbd "C-c t") #'my/toggle-theme)
+#+end_src
+
+* Mode Line
+
+A lightweight, no-dependency replacement for the default mode line.
+
+mood-line deliberately omits minor-mode lighters, so ~prose-mode~'s
+~" Prose"~ lighter would never appear. Since that mode substantially
+changes how a buffer looks and behaves, we add a small custom segment
+that surfaces it: ~mood-line-segment-prose~ returns an indicator only
+while ~prose-mode~ is active (and nil otherwise, so mood-line drops
+the segment and its separator entirely). It is spliced into a copy of
+the default format on the right side, just before the major mode.
+
+#+begin_src emacs-lisp
+(use-package mood-line
+  :config
+  (defun mood-line-segment-prose ()
+    "Mode-line indicator shown only while `prose-mode' is active."
+    (when (bound-and-true-p prose-mode)
+      (propertize "✍ Prose" 'face 'mood-line-status-info)))
+
+  (setq mood-line-format
+        (mood-line-defformat
+         :left
+         (((mood-line-segment-modal)                  . " ")
+          ((or (mood-line-segment-buffer-status) " ") . " ")
+          ((mood-line-segment-buffer-name)            . "  ")
+          ((mood-line-segment-anzu)                   . "  ")
+          ((mood-line-segment-multiple-cursors)       . "  ")
+          ((mood-line-segment-cursor-position)        . " ")
+          (mood-line-segment-scroll))
+         :right
+         (((mood-line-segment-prose)      . "  ")
+          ((mood-line-segment-vc)         . "  ")
+          ((mood-line-segment-major-mode) . "  ")
+          ((mood-line-segment-misc-info)  . "  ")
+          ((mood-line-segment-checker)    . "  ")
+          ((mood-line-segment-process)    . "  "))))
+
+  (mood-line-mode))
 #+end_src
 
 * Custom Keybindings
@@ -507,19 +602,6 @@ obvious at a glance which mode is active.
   (add-hook 'god-mode-disabled-hook #'my/god-mode-update-cursor))
 #+end_src
 
-* Version Control
-
-** Magit
-
-The standard Emacs git porcelain. ~C-x g~ opens ~magit-status~, a
-single buffer covering staging, committing, branching, and history.
-
-#+begin_src emacs-lisp
-(use-package magit
-  :bind
-  ("C-x g" . magit-status))
-#+end_src
-
 * Editing Helpers
 
 ** Rainbow Delimiters
@@ -674,92 +756,44 @@ line the way plain `TAB' / `org-cycle' require."
   (define-key org-mode-map (kbd "C-c f") #'my/org-fold-current-subtree))
 #+end_src
 
-* Themes
+* Spell Checking
 
-Doom Themes provides the color theme plus small integrations (a
-flashing mode-line on errors, and better =org-mode= fontification).
-~C-c t~ toggles between ~adwaita-dark~ (dark) and ~doom-ayu-light~
-(light), alternating from whichever theme is currently active.
+[[https://github.com/minad/jinx][Jinx]] instead of the built-in Flyspell. Jinx checks the whole visible
+window in one pass via the [[https://abiword.github.io/enchant/][Enchant]] library (falling back to a
+compiled C module, ~jinx-mod~, built on first load), so it stays fast
+where Flyspell's per-word ~ispell~ subprocess chugged. ~global-jinx-mode~
+replaces *both* ~flyspell-mode~ and ~flyspell-prog-mode~: Jinx decides
+what to check from face, so in programming buffers it limits itself to
+comments and strings automatically, no per-mode setup.
+
+Prerequisites (both machines): =libenchant= + =pkgconf= + a C compiler.
+On macOS that's ~brew install enchant~ (Enchant then routes to the
+installed aspell/hunspell dictionaries and macOS's native AppleSpell);
+on Debian/Ubuntu, ~apt install libenchant-2-dev pkgconf~. Enchant is the
+one moving part -- without it the ~jinx-mod~ compile fails on first use.
+
+~M-$~ (normally ~ispell-word~) is rebound to ~jinx-correct~ -- correct the
+word at point, or with a region/prefix the misspellings around it. ~C-M-$~
+runs ~jinx-languages~ to switch dictionaries on the fly.
 
 #+begin_src emacs-lisp
-(setq custom-safe-themes t)
-(use-package adwaita-dark-theme
-  :ensure t)
-
-(use-package doom-themes
-  :ensure t
-  :config
-  ;; Global settings (optional).
-  (setq doom-themes-enable-bold t
-        doom-themes-enable-italic t)
-
-  ;; Load the theme (choose your favorite).
-  (load-theme 'adwaita-dark t)
-
-  ;; Enable flashing mode-line on errors.
-  (doom-themes-visual-bell-config)
-
-  ;; Corrects (and improves) org-mode's native fontification.
-  (doom-themes-org-config))
-
-(defvar my/theme-toggle-list '(adwaita-dark doom-ayu-light)
-  "Themes `my/toggle-theme' alternates between.")
-
-(defun my/toggle-theme ()
-  "Switch between the two themes in `my/theme-toggle-list'.
-Disables whatever theme is currently active first, so themes
-never stack."
-  (interactive)
-  (let* ((current (car custom-enabled-themes))
-         (next (if (eq current (car my/theme-toggle-list))
-                   (cadr my/theme-toggle-list)
-                 (car my/theme-toggle-list))))
-    (mapc #'disable-theme custom-enabled-themes)
-    (load-theme next t)
-    (message "Theme: %s" next)))
-
-(global-set-key (kbd "C-c t") #'my/toggle-theme)
+(use-package jinx
+  :hook (emacs-startup . global-jinx-mode)
+  :bind (("M-$"   . jinx-correct)
+         ("C-M-$" . jinx-languages)))
 #+end_src
 
-* Mode Line
+* Version Control
 
-A lightweight, no-dependency replacement for the default mode line.
+** Magit
 
-mood-line deliberately omits minor-mode lighters, so ~prose-mode~'s
-~" Prose"~ lighter would never appear. Since that mode substantially
-changes how a buffer looks and behaves, we add a small custom segment
-that surfaces it: ~mood-line-segment-prose~ returns an indicator only
-while ~prose-mode~ is active (and nil otherwise, so mood-line drops
-the segment and its separator entirely). It is spliced into a copy of
-the default format on the right side, just before the major mode.
+The standard Emacs git porcelain. ~C-x g~ opens ~magit-status~, a
+single buffer covering staging, committing, branching, and history.
 
 #+begin_src emacs-lisp
-(use-package mood-line
-  :config
-  (defun mood-line-segment-prose ()
-    "Mode-line indicator shown only while `prose-mode' is active."
-    (when (bound-and-true-p prose-mode)
-      (propertize "✍ Prose" 'face 'mood-line-status-info)))
-
-  (setq mood-line-format
-        (mood-line-defformat
-         :left
-         (((mood-line-segment-modal)                  . " ")
-          ((or (mood-line-segment-buffer-status) " ") . " ")
-          ((mood-line-segment-buffer-name)            . "  ")
-          ((mood-line-segment-anzu)                   . "  ")
-          ((mood-line-segment-multiple-cursors)       . "  ")
-          ((mood-line-segment-cursor-position)        . " ")
-          (mood-line-segment-scroll))
-         :right
-         (((mood-line-segment-prose)      . "  ")
-          ((mood-line-segment-vc)         . "  ")
-          ((mood-line-segment-major-mode) . "  ")
-          ((mood-line-segment-misc-info)  . "  ")
-          ((mood-line-segment-checker)    . "  ")
-          ((mood-line-segment-process)    . "  "))))
-
-  (mood-line-mode))
+(use-package magit
+  :bind
+  ("C-x g" . magit-status))
 #+end_src
 
 * Encrypted Files (EasyPG)
@@ -800,6 +834,16 @@ under X and may not enable loopback in its agent -- untouched.
 #+begin_src emacs-lisp
 (when (eq system-type 'darwin)
   (setq epa-pinentry-mode 'loopback))
+#+end_src
+
+* Email
+
+Placeholder for an Emacs email setup (client, accounts, sending).
+The source block below is intentionally empty for now -- add the
+configuration here and it tangles into ~config.el~ on the next
+~C-c r~, alongside everything else.
+
+#+begin_src emacs-lisp
 #+end_src
 
 * Elfeed + FreshRSS (synced RSS)

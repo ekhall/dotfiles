@@ -66,6 +66,73 @@ falling back to its default \"Sans Serif\"."
   (add-to-list 'gnutls-trustfiles "/usr/local/etc/openssl/cert.pem"))
 ;; Networking:1 ends here
 
+;; [[file:config.org::*Themes][Themes:1]]
+(setq custom-safe-themes t)
+
+(use-package doom-themes
+  :ensure t
+  :config
+  ;; Global settings (optional).
+  (setq doom-themes-enable-bold t
+        doom-themes-enable-italic t)
+
+  ;; Load the theme (choose your favorite).
+  (load-theme 'doom-tomorrow-night t)
+
+  ;; Enable flashing mode-line on errors.
+  (doom-themes-visual-bell-config)
+
+  ;; Corrects (and improves) org-mode's native fontification.
+  (doom-themes-org-config))
+
+(defvar my/theme-toggle-list '(doom-tomorrow-night doom-tomorrow-day)
+  "Themes `my/toggle-theme' alternates between.")
+
+(defun my/toggle-theme ()
+  "Switch between the two themes in `my/theme-toggle-list'.
+Disables whatever theme is currently active first, so themes
+never stack."
+  (interactive)
+  (let* ((current (car custom-enabled-themes))
+         (next (if (eq current (car my/theme-toggle-list))
+                   (cadr my/theme-toggle-list)
+                 (car my/theme-toggle-list))))
+    (mapc #'disable-theme custom-enabled-themes)
+    (load-theme next t)
+    (message "Theme: %s" next)))
+
+(global-set-key (kbd "C-c t") #'my/toggle-theme)
+;; Themes:1 ends here
+
+;; [[file:config.org::*Mode Line][Mode Line:1]]
+(use-package mood-line
+  :config
+  (defun mood-line-segment-prose ()
+    "Mode-line indicator shown only while `prose-mode' is active."
+    (when (bound-and-true-p prose-mode)
+      (propertize "✍ Prose" 'face 'mood-line-status-info)))
+
+  (setq mood-line-format
+        (mood-line-defformat
+         :left
+         (((mood-line-segment-modal)                  . " ")
+          ((or (mood-line-segment-buffer-status) " ") . " ")
+          ((mood-line-segment-buffer-name)            . "  ")
+          ((mood-line-segment-anzu)                   . "  ")
+          ((mood-line-segment-multiple-cursors)       . "  ")
+          ((mood-line-segment-cursor-position)        . " ")
+          (mood-line-segment-scroll))
+         :right
+         (((mood-line-segment-prose)      . "  ")
+          ((mood-line-segment-vc)         . "  ")
+          ((mood-line-segment-major-mode) . "  ")
+          ((mood-line-segment-misc-info)  . "  ")
+          ((mood-line-segment-checker)    . "  ")
+          ((mood-line-segment-process)    . "  "))))
+
+  (mood-line-mode))
+;; Mode Line:1 ends here
+
 ;; [[file:config.org::*Custom Keybindings][Custom Keybindings:1]]
 (defun my/reload-config ()
   "Reload the Emacs configuration without restarting the daemon.
@@ -226,12 +293,6 @@ undone until a full restart."
   (add-hook 'god-mode-disabled-hook #'my/god-mode-update-cursor))
 ;; God Mode:1 ends here
 
-;; [[file:config.org::*Magit][Magit:1]]
-(use-package magit
-  :bind
-  ("C-x g" . magit-status))
-;; Magit:1 ends here
-
 ;; [[file:config.org::*Rainbow Delimiters][Rainbow Delimiters:1]]
 (use-package rainbow-delimiters
   :ensure t
@@ -306,74 +367,18 @@ line the way plain `TAB' / `org-cycle' require."
   (define-key org-mode-map (kbd "C-c f") #'my/org-fold-current-subtree))
 ;; Folding a Section From Its Body:1 ends here
 
-;; [[file:config.org::*Themes][Themes:1]]
-(setq custom-safe-themes t)
-(use-package adwaita-dark-theme
-  :ensure t)
+;; [[file:config.org::*Spell Checking][Spell Checking:1]]
+(use-package jinx
+  :hook (emacs-startup . global-jinx-mode)
+  :bind (("M-$"   . jinx-correct)
+         ("C-M-$" . jinx-languages)))
+;; Spell Checking:1 ends here
 
-(use-package doom-themes
-  :ensure t
-  :config
-  ;; Global settings (optional).
-  (setq doom-themes-enable-bold t
-        doom-themes-enable-italic t)
-
-  ;; Load the theme (choose your favorite).
-  (load-theme 'adwaita-dark t)
-
-  ;; Enable flashing mode-line on errors.
-  (doom-themes-visual-bell-config)
-
-  ;; Corrects (and improves) org-mode's native fontification.
-  (doom-themes-org-config))
-
-(defvar my/theme-toggle-list '(adwaita-dark doom-ayu-light)
-  "Themes `my/toggle-theme' alternates between.")
-
-(defun my/toggle-theme ()
-  "Switch between the two themes in `my/theme-toggle-list'.
-Disables whatever theme is currently active first, so themes
-never stack."
-  (interactive)
-  (let* ((current (car custom-enabled-themes))
-         (next (if (eq current (car my/theme-toggle-list))
-                   (cadr my/theme-toggle-list)
-                 (car my/theme-toggle-list))))
-    (mapc #'disable-theme custom-enabled-themes)
-    (load-theme next t)
-    (message "Theme: %s" next)))
-
-(global-set-key (kbd "C-c t") #'my/toggle-theme)
-;; Themes:1 ends here
-
-;; [[file:config.org::*Mode Line][Mode Line:1]]
-(use-package mood-line
-  :config
-  (defun mood-line-segment-prose ()
-    "Mode-line indicator shown only while `prose-mode' is active."
-    (when (bound-and-true-p prose-mode)
-      (propertize "✍ Prose" 'face 'mood-line-status-info)))
-
-  (setq mood-line-format
-        (mood-line-defformat
-         :left
-         (((mood-line-segment-modal)                  . " ")
-          ((or (mood-line-segment-buffer-status) " ") . " ")
-          ((mood-line-segment-buffer-name)            . "  ")
-          ((mood-line-segment-anzu)                   . "  ")
-          ((mood-line-segment-multiple-cursors)       . "  ")
-          ((mood-line-segment-cursor-position)        . " ")
-          (mood-line-segment-scroll))
-         :right
-         (((mood-line-segment-prose)      . "  ")
-          ((mood-line-segment-vc)         . "  ")
-          ((mood-line-segment-major-mode) . "  ")
-          ((mood-line-segment-misc-info)  . "  ")
-          ((mood-line-segment-checker)    . "  ")
-          ((mood-line-segment-process)    . "  "))))
-
-  (mood-line-mode))
-;; Mode Line:1 ends here
+;; [[file:config.org::*Magit][Magit:1]]
+(use-package magit
+  :bind
+  ("C-x g" . magit-status))
+;; Magit:1 ends here
 
 ;; [[file:config.org::*Encrypted Files (EasyPG)][Encrypted Files (EasyPG):1]]
 (setq epa-file-encrypt-to '("hall@absinthe.org")
@@ -384,6 +389,10 @@ never stack."
 (when (eq system-type 'darwin)
   (setq epa-pinentry-mode 'loopback))
 ;; Encrypted Files (EasyPG):2 ends here
+
+;; [[file:config.org::*Email][Email:1]]
+
+;; Email:1 ends here
 
 ;; [[file:config.org::*Configuration][Configuration:1]]
 ;; defconst, not defvar: these are edited in this file and must update
