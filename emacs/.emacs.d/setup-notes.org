@@ -302,6 +302,191 @@ See =~/Desktop/notmuch-cheatsheet.pdf= (or regenerate it) for the full key map.
 - *Read/flag state* round-trips: notmuch tags <-> Maildir flags <-> mbsync
   <-> Fastmail (=synchronize_flags=true=).
 
+* Second account: Yale (Microsoft 365 via OAuth2)
+
+Yale is Microsoft 365. Basic-auth IMAP is dead there; it requires *OAuth2*.
+IMAP *is* enabled on the mailbox, but only works with a token minted against
+*Yale's tenant* (not the generic ~common~ endpoint). No DavMail and no Yale
+IT involvement are needed. Beyond the Fastmail stack this adds three things:
+a token manager (=mutt_oauth2.py=), a SASL XOAUTH2 plugin so ~mbsync~ can
+authenticate, and a second mbsync channel + notmuch tags.
+
+** Read these gotchas first (each cost hours)
+
+1. *Tenant, not ~common~.* The token MUST use Yale's tenant GUID
+   =dd8cbebb-2139-4df8-b411-4e3e87abeb5c=. A ~common~-tenant token
+   authenticates but IMAP then fails with *"User is authenticated but not
+   connected"* — that is NOT "IMAP disabled", it's the wrong tenant.
+2. *macOS system XOAUTH2 is incompatible with mbsync.* Apple's
+   =/usr/lib/sasl2/oauthbearer.so= advertises XOAUTH2 but wants a callback
+   ~mbsync~ can't supply (=Unable to find a callback: 18948=). Use the
+   moriyoshi =cyrus-sasl-xoauth2= plugin (takes the token via the ordinary
+   password callback). Apple's libsasl2 honours =SASL_PATH=, so the plugin
+   can live in a user-owned dir — no SIP fight.
+3. *gpg-agent must decrypt non-interactively.* ~mbsync~'s PassCmd runs
+   =mutt_oauth2.py=, which decrypts the token with gpg. For unattended runs
+   (Emacs poll), prime the agent: set =GPG_TTY=$(tty)= in a terminal, or use
+   =pinentry-mac= / a long =default-cache-ttl=.
+
+** 1. Python cert fix (macOS python.org build only)
+
+The python.org Python has no CA bundle, so =mutt_oauth2.py= fails TLS. Once:
+
+: /Applications/Python\ 3.12/Install\ Certificates.command
+
+(Linux distro Python is fine.)
+
+** 2. Token manager: mutt_oauth2.py
+
+#+begin_src sh
+curl -fsSL -o ~/.local/bin/mutt_oauth2.py \
+  https://raw.githubusercontent.com/muttmua/mutt/master/contrib/mutt_oauth2.py
+chmod +x ~/.local/bin/mutt_oauth2.py
+#+end_src
+
+Edit its =microsoft= registration:
+- =ENCRYPTION_PIPE= recipient -> =hall@absinthe.org=
+- =client_id= -> =9e5f94bc-e8a4-4e73-b8be-63364c29d753= (Thunderbird's public app; Yale permits it)
+- =tenant= AND the =authorize_endpoint= / =devicecode_endpoint= / =token_endpoint=
+  paths -> replace =/common/= with =/dd8cbebb-2139-4df8-b411-4e3e87abeb5c/=
+
+Authorize (interactive browser sign-in with NetID + MFA) and test:
+
+#+begin_src sh
+mutt_oauth2.py --authorize ~/.mutt_oauth2_yale.token
+#   answers:  microsoft  /  localhostauthcode  /  kevin.hall@yale.edu
+export GPG_TTY=$(tty)
+mutt_oauth2.py --verbose --test ~/.mutt_oauth2_yale.token
+#   want: IMAP/POP/SMTP authentication succeeded
+#+end_src
+
+** 3. cyrus-sasl-xoauth2 plugin
+
+*** macOS (from source; not in Homebrew)
+
+#+begin_src sh
+brew install libtool automake
+cd ~/.local/opt && git clone --depth 1 https://github.com/moriyoshi/cyrus-sasl-xoauth2.git
+cd cyrus-sasl-xoauth2
+glibtoolize --force --copy               # NOT libtoolize on macOS
+touch NEWS README AUTHORS ChangeLog      # automake strict mode wants these
+autoreconf -fvi && ./configure && make   # SDK provides sasl/*.h automatically
+
+# Assemble a private plugin dir: our XOAUTH2 + symlinks to the system plugins,
+# but EXCLUDING Apple's oauthbearer.so (whose XOAUTH2 we're replacing).
+mkdir -p ~/.local/lib/sasl2
+for f in /usr/lib/sasl2/*.so; do
+  b=$(basename "$f"); [ "$b" = oauthbearer.so ] && continue
+  ln -sf "$f" ~/.local/lib/sasl2/"$b"
+done
+cp .libs/libxoauth2.0.so ~/.local/lib/sasl2/libxoauth2.so   # name must be libxoauth2.so
+#+end_src
+
+mbsync then needs =SASL_PATH=$HOME/.local/lib/sasl2= in its environment.
+
+*** Linux (easier — no SASL_PATH, no conflict)
+
+#+begin_src sh
+sudo apt install libsasl2-dev autoconf automake libtool   # + build-essential git
+git clone --depth 1 https://github.com/moriyoshi/cyrus-sasl-xoauth2.git
+cd cyrus-sasl-xoauth2 && ./autogen.sh && ./configure && make && sudo make install
+#+end_src
+
+This installs into the system SASL dir (=/usr/lib/x86_64-linux-gnu/sasl2/=),
+and Linux libsasl2 has no conflicting Apple plugin, so =SASL_PATH= is *not*
+needed there. (Omit the =SASL_PATH= export from the hook on Linux, or point
+it at the system dir.)
+
+** 4. mbsync channel (append to =~/.mbsyncrc=)
+
+#+begin_src conf
+IMAPAccount yale
+Host outlook.office365.com
+Port 993
+User kevin.hall@yale.edu
+PassCmd "mutt_oauth2.py ~/.mutt_oauth2_yale.token"
+TLSType IMAPS
+AuthMechs XOAUTH2
+
+IMAPStore yale-remote
+Account yale
+
+MaildirStore yale-local
+Subfolders Verbatim
+Path ~/Maildir/yale/
+Inbox ~/Maildir/yale/Inbox
+
+Channel yale
+Far :yale-remote:
+Near :yale-local:
+# Mail folders only: skip the huge Archive* (kept server-side), Outlook
+# non-mail folders, and system cruft.
+Patterns "*" "!Archive*" "!Calendar" "!Contacts" "!Journal" "!Outbox" "!Conversation History" "!Conversation History/*" "!Sync Issues" "!Sync Issues/*"
+Create Near
+Expunge Both
+SyncState *
+CopyArrivalDate yes
+#+end_src
+
+First sync is large and Office 365 throttles it — expect socket timeouts;
+just re-run =mbsync yale= (it resumes) until it completes.
+
+** 5. notmuch integration (two accounts)
+
+- =~/.notmuch-config=: add =other_email=kevin.hall@yale.edu= under =[user]=,
+  and append =;Calendar;Contacts;Journal;Outbox;Conversation History;Sync Issues=
+  to =new.ignore= (belt-and-suspenders against non-mail folders).
+- =post-new= hook now tags *both* accounts and Yale's Outlook folders
+  (names differ: "Sent Items", "Deleted Items", "Junk Email"):
+
+#+begin_src sh
+notmuch tag +fastmail -- 'tag:new and path:fastmail/**'
+notmuch tag +yale     -- 'tag:new and path:yale/**'
+# ... fastmail folder rules ...
+notmuch tag +inbox          -- 'tag:new and path:yale/Inbox/**'
+notmuch tag +sent -unread   -- 'tag:new and (path:"yale/Sent Items/**" or path:yale/Sent/**)'
+notmuch tag +spam    -inbox -- 'tag:new and (path:"yale/Junk Email/**" or path:yale/Junk/**)'
+notmuch tag +deleted -inbox -- 'tag:new and path:"yale/Deleted Items/**"'
+notmuch tag +draft          -- 'tag:new and path:yale/Drafts/**'
+#+end_src
+
+- *One-time* after the first index (the hook only tags ~tag:new~, so existing
+  mail needs a retro-pass):
+
+#+begin_src sh
+notmuch tag +fastmail -- 'path:fastmail/** and not tag:fastmail'
+notmuch tag +yale     -- 'path:yale/** and not tag:yale'
+notmuch tag +inbox          -- 'path:yale/Inbox/** and not tag:inbox'
+notmuch tag +sent -unread   -- '(path:"yale/Sent Items/**" or path:yale/Sent/**) and not tag:sent'
+notmuch tag +spam    -inbox -- '(path:"yale/Junk Email/**" or path:yale/Junk/**) and not tag:spam'
+notmuch tag +deleted -inbox -- 'path:"yale/Deleted Items/**" and not tag:deleted'
+notmuch tag +draft          -- 'path:yale/Drafts/** and not tag:draft'
+#+end_src
+
+- Saved searches (in =config.org=): unified inbox =j i= (=tag:inbox=),
+  Fastmail =j F= (=tag:inbox and tag:fastmail=), Yale =j Y=
+  (=tag:inbox and tag:yale=).
+
+** 6. Make the auto-poll authenticate Yale
+
+The =pre-new= hook exports =SASL_PATH= before =mbsync -a= so the Emacs 5-min
+poll (and =G=) can auth Yale, not just Fastmail (macOS only — omit on Linux):
+
+: export SASL_PATH="$HOME/.local/lib/sasl2"
+
+** Still TODO: sending as Yale
+
+Reading works; *sending as Yale is not wired up yet.* It needs =smtpmail=
+XOAUTH2 to =smtp.office365.com:587= with per-account From routing (Fastmail =
+password, Yale = OAuth token) — until then, replies go out via Fastmail's
+SMTP, which is wrong for Yale mail. Do not send *as* Yale until configured.
+
+** Security note
+
+During setup the Yale OAuth tokens were exposed in a chat transcript. Re-mint
+before relying on this: =rm ~/.mutt_oauth2_yale.token= then re-authorize
+(without =--debug=), and revoke old sessions at =myapplications.microsoft.com=.
+
 * Optional: OS-level background sync (mail while Emacs is closed)
 
 The Emacs timer only runs while Emacs is open. To sync in the background
@@ -348,6 +533,9 @@ Create =~/.config/systemd/user/notmuch-sync.service= (Type=oneshot running
 | =~/.mbsyncrc=                          | no       | none (copy verbatim)               |
 | =~/.notmuch-config=                    | no       | =database.path= absolute per OS    |
 | =~/.authinfo.gpg=                      | no       | own encrypted secret               |
-| =~/Maildir/.notmuch/hooks/pre-new=     | no       | none (chmod +x)                    |
+| =~/Maildir/.notmuch/hooks/pre-new=     | no       | drop the SASL_PATH export on Linux |
 | =~/Maildir/.notmuch/hooks/post-new=    | no       | folder names if account differs    |
 | =~/.gnupg/gpg-agent.conf= (macOS)      | no       | =allow-loopback-pinentry=          |
+| =~/.local/bin/mutt_oauth2.py= (Yale)   | no       | Yale tenant + client_id edits      |
+| =~/.mutt_oauth2_yale.token= (Yale)     | no       | own encrypted OAuth token          |
+| =~/.local/lib/sasl2/libxoauth2.so=     | no       | rebuild per OS; Linux -> system dir |

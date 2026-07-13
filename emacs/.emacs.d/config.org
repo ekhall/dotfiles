@@ -888,12 +888,16 @@ Fastmail.
         ;; :sort-order newest-first is pinned per-search so it overrides the
         ;; global `notmuch-search-oldest-first' unconditionally.
         notmuch-saved-searches
-        '((:name "inbox"   :query "tag:inbox"   :key "i" :sort-order newest-first)
-          (:name "unread"  :query "tag:unread"  :key "u" :sort-order newest-first)
-          (:name "flagged" :query "tag:flagged" :key "f" :sort-order newest-first)
-          (:name "sent"    :query "tag:sent"    :key "s" :sort-order newest-first)
-          (:name "drafts"  :query "tag:draft"   :key "d" :sort-order newest-first)
-          (:name "all"     :query "*"           :key "a" :sort-order newest-first)))
+        ;; Unified inbox (both accounts) plus per-account inboxes: `j i' for
+        ;; everything, `j F' for Fastmail only, `j Y' for Yale only.
+        '((:name "inbox"    :query "tag:inbox"                  :key "i" :sort-order newest-first)
+          (:name "fastmail" :query "tag:inbox and tag:fastmail" :key "F" :sort-order newest-first)
+          (:name "yale"     :query "tag:inbox and tag:yale"     :key "Y" :sort-order newest-first)
+          (:name "unread"   :query "tag:unread"                 :key "u" :sort-order newest-first)
+          (:name "flagged"  :query "tag:flagged"                :key "f" :sort-order newest-first)
+          (:name "sent"     :query "tag:sent"                   :key "s" :sort-order newest-first)
+          (:name "drafts"   :query "tag:draft"                  :key "d" :sort-order newest-first)
+          (:name "all"      :query "*"                          :key "a" :sort-order newest-first)))
   ;; File sent mail into the local Sent maildir; mbsync uploads it to Fastmail.
   (setq notmuch-fcc-dirs "fastmail/Sent"))
 
