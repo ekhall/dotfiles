@@ -836,14 +836,151 @@ under X and may not enable loopback in its agent -- untouched.
   (setq epa-pinentry-mode 'loopback))
 #+end_src
 
-* Email
+* Email (notmuch + Fastmail)
 
-Placeholder for an Emacs email setup (client, accounts, sending).
-The source block below is intentionally empty for now -- add the
-configuration here and it tangles into ~config.el~ on the next
-~C-c r~, alongside everything else.
+Mail lives as a local Maildir at =~/Maildir/fastmail/=, kept in sync with
+Fastmail by [[https://isync.sourceforge.io/][isync (~mbsync~)]] and indexed by
+[[https://notmuchmail.org/][notmuch]]. notmuch itself neither fetches nor
+sends mail -- it only indexes and tags -- so the moving parts are:
+
+- *Fetch*  : ~mbsync -a~ pulls IMAP -> =~/Maildir/fastmail/= (config in =~/.mbsyncrc=).
+- *Index*  : ~notmuch new~ indexes the Maildir and applies tags (config in =~/.notmuch-config=).
+- *Send*   : Emacs's built-in ~smtpmail~ over Fastmail's SMTP -- no extra
+  binary, and it reads the same =~/.authinfo.gpg= as everything else.
+
+Everything is portable to Linux: =~/.mbsyncrc= uses ~$HOME~-relative paths
+and works unchanged; only =~/.notmuch-config='s absolute ~database.path~ and
+the machine-local =~/.authinfo.gpg= differ per machine.
+
+** Secret handling
+
+The Fastmail *app password* (created in Fastmail's web UI, distinct from the
+web-login password) must never live in the dotfiles repo. It is stored once
+in =~/.authinfo.gpg= (the same encrypted store the FreshRSS Fever password
+uses), on two lines -- same app password for both IMAP and SMTP:
+
+: machine imap.fastmail.com login hall@absinthe.org password APP-PASSWORD
+: machine smtp.fastmail.com login hall@absinthe.org port 465 password APP-PASSWORD
+
+~mbsync~ reads the IMAP line via its ~PassCmd~; ~smtpmail~ finds the SMTP line
+through ~auth-source~ automatically.
+
+** Configuration
+
+The ~notmuch~ Emacs package is pulled from ELPA (via ~use-package-always-ensure~)
+rather than the copy Homebrew/apt ship with the CLI, so the same config loads
+identically on every machine. ~C-c m~ opens the notmuch hello screen.
+
+~notmuch-fcc-dirs~ files a copy of every sent message into the local Sent
+maildir; the next ~mbsync~ then uploads it to Fastmail (Fastmail, unlike
+Gmail, does *not* auto-save SMTP-sent mail server-side, so this Fcc is what
+populates the Sent folder). ~maildir:synchronize_flags~ in =~/.notmuch-config=
+means read/flagged state round-trips: notmuch <-> Maildir flags <-> mbsync <->
+Fastmail.
 
 #+begin_src emacs-lisp
+(use-package notmuch
+  :commands (notmuch notmuch-search notmuch-mua-new-mail)
+  :bind ("C-c m" . notmuch)
+  :config
+  (setq notmuch-show-logo nil
+        notmuch-search-oldest-first nil
+        ;; :sort-order newest-first is pinned per-search so it overrides the
+        ;; global `notmuch-search-oldest-first' unconditionally.
+        notmuch-saved-searches
+        '((:name "inbox"   :query "tag:inbox"   :key "i" :sort-order newest-first)
+          (:name "unread"  :query "tag:unread"  :key "u" :sort-order newest-first)
+          (:name "flagged" :query "tag:flagged" :key "f" :sort-order newest-first)
+          (:name "sent"    :query "tag:sent"    :key "s" :sort-order newest-first)
+          (:name "drafts"  :query "tag:draft"   :key "d" :sort-order newest-first)
+          (:name "all"     :query "*"           :key "a" :sort-order newest-first)))
+  ;; File sent mail into the local Sent maildir; mbsync uploads it to Fastmail.
+  (setq notmuch-fcc-dirs "fastmail/Sent"))
+
+;; Compose/send with notmuch's message-mode; deliver via Fastmail SMTP.
+;; The password comes from ~/.authinfo.gpg via auth-source (smtp.fastmail.com).
+(setq mail-user-agent         'notmuch-user-agent
+      send-mail-function       'smtpmail-send-it
+      message-send-mail-function 'smtpmail-send-it
+      smtpmail-smtp-server     "smtp.fastmail.com"
+      smtpmail-smtp-service    465
+      smtpmail-stream-type     'ssl
+      user-mail-address        "hall@absinthe.org"
+      user-full-name           "E. Kevin Hall"
+      message-kill-buffer-on-exit t)
+#+end_src
+
+** Deleting mail (move to Fastmail Trash)
+
+notmuch has no "delete" -- only tags. ~d~ tags a thread ~deleted~ (which
+=search.exclude_tags= hides immediately) and advances. Nothing leaves
+Fastmail at that instant. On the next sync the =pre-new= hook physically
+moves every ~deleted~ message into the local Trash maildir, and ~mbsync~
+relocates it to *Fastmail Trash* -- recoverable there until Fastmail
+auto-purges (~30 days). Tagging ~deleted~ does **not** set the Maildir
+~T~ flag (verified: notmuch only syncs D/F/P/R/S), so it never triggers an
+IMAP expunge on its own; the *move* is what deletes it from the original
+folder.
+
+Undo is easy *before* the next sync: ~-deleted~ (or ~notmuch-search-tag~)
+puts it right back. After the sync it lives in Fastmail Trash, so recover
+it from any Fastmail client. These commands live in a
+~with-eval-after-load~ block because they reference ~notmuch-*-mode-map~,
+which only exist once notmuch has loaded.
+
+#+begin_src emacs-lisp
+(with-eval-after-load 'notmuch
+  (defun my/notmuch-search-delete ()
+    "Tag thread(s) `deleted' and advance; synced to Fastmail Trash on next poll."
+    (interactive)
+    (notmuch-search-tag '("+deleted" "-inbox" "-unread"))
+    (notmuch-search-next-thread))
+
+  (defun my/notmuch-show-delete ()
+    "Tag the current message `deleted' and move to the next thread."
+    (interactive)
+    (notmuch-show-tag '("+deleted" "-inbox" "-unread"))
+    (notmuch-show-next-thread t))
+
+  (define-key notmuch-search-mode-map (kbd "d") #'my/notmuch-search-delete)
+  (define-key notmuch-show-mode-map   (kbd "d") #'my/notmuch-show-delete))
+#+end_src
+
+** Auto-fetch every 5 minutes
+
+While Emacs is running, poll Fastmail every 5 minutes in the *background*
+(a detached ~notmuch new~, which runs the =pre-new= sync hook) and refresh
+any open notmuch buffers when it finishes. Using ~make-process~ instead of
+the built-in synchronous ~notmuch-poll~ keeps the ~mbsync~ round-trip off
+the main thread, so the UI never freezes mid-sync. A guard skips a new run
+while the previous one is still going (notmuch takes a database lock, so
+overlapping runs would error), and the timer is cancelled-then-recreated on
+every ~C-c r~ so reloads don't stack timers. Polling begins once notmuch is
+first loaded in a session (i.e. after your first ~C-c m~); ~G~ still forces
+an immediate sync any time.
+
+#+begin_src emacs-lisp
+(with-eval-after-load 'notmuch
+  (defvar my/notmuch-poll-process nil
+    "The most recent background `notmuch new' process, or nil.")
+
+  (defun my/notmuch-poll-async ()
+    "Run `notmuch new' in the background, then refresh notmuch buffers."
+    (when (or (null my/notmuch-poll-process)
+              (not (process-live-p my/notmuch-poll-process)))
+      (setq my/notmuch-poll-process
+            (make-process
+             :name "notmuch-poll" :buffer nil :noquery t
+             :command (list notmuch-command "new")
+             :sentinel (lambda (_proc event)
+                         (when (string-prefix-p "finished" event)
+                           (notmuch-refresh-all-buffers)))))))
+
+  (defvar my/notmuch-poll-timer nil
+    "Repeating timer that drives `my/notmuch-poll-async'.")
+  (when (timerp my/notmuch-poll-timer) (cancel-timer my/notmuch-poll-timer))
+  (setq my/notmuch-poll-timer
+        (run-with-timer 300 300 #'my/notmuch-poll-async)))
 #+end_src
 
 * Elfeed + FreshRSS (synced RSS)

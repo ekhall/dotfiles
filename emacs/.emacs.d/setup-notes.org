@@ -1,0 +1,353 @@
+#+TITLE: Notmuch Email Setup (Fastmail) — Machine Setup Notes
+#+AUTHOR: E. Kevin Hall
+#+STARTUP: showall
+
+* What this is
+
+Step-by-step notes for bringing up my Emacs email stack on a *new machine*
+(macOS or Linux). The Emacs side already lives in =config.org= (tangled to
+=config.el= and loaded by =init.el=), so it travels with these dotfiles.
+This file documents the pieces that are *machine-local* and therefore are
+NOT in the repo: the sync/index/secret configuration and the notmuch hooks.
+
+** Architecture (four moving parts)
+
+notmuch does not fetch or send mail — it only indexes and tags a local
+Maildir. The stack:
+
+| Job                    | Tool                      | Config file                         |
+|------------------------+---------------------------+-------------------------------------|
+| Fetch IMAP -> Maildir  | ~mbsync~ (isync)          | =~/.mbsyncrc=                       |
+| Index + tag            | ~notmuch~                 | =~/.notmuch-config= + Maildir hooks |
+| Send                   | Emacs built-in ~smtpmail~ | in =config.org= (portable)         |
+| Secrets                | ~gpg~ + =~/.authinfo.gpg= | machine-local                       |
+
+Mail is stored at =~/Maildir/fastmail/=. The notmuch database indexes the
+whole of =~/Maildir/= (so more accounts can be added later as siblings).
+
+* Quick checklist for a new machine
+
+1. [ ] Install packages: =isync notmuch gnupg= (see [[*1. Install packages]]).
+2. [ ] Have a personal GPG key for =hall@absinthe.org= (see [[*2. GPG key]]).
+3. [ ] Create a Fastmail *app password* (see [[*3. Fastmail app password]]).
+4. [ ] Write =~/.authinfo.gpg= with the two Fastmail lines (see [[*4. Secrets]]).
+5. [ ] Write =~/.mbsyncrc= (see [[*5. mbsync config]]).
+6. [ ] Write =~/.notmuch-config= — *set database.path for this OS* (see [[*6. notmuch config]]).
+7. [ ] Create the notmuch hooks and =chmod +x= them (see [[*7. notmuch hooks]]).
+8. [ ] First sync + index (see [[*8. First sync and index]]).
+9. [ ] In Emacs: =C-c r= then =C-c m= (see [[*9. Emacs]]).
+
+* 1. Install packages
+
+** macOS (Homebrew)
+
+#+begin_src sh
+brew install isync notmuch gnupg
+#+end_src
+
+Binaries land in =/opt/homebrew/bin= (Apple Silicon). Emacs picks them up
+via =exec-path-from-shell= (already configured in =config.org=).
+
+** Linux (Debian/Ubuntu)
+
+#+begin_src sh
+sudo apt install isync notmuch gnupg
+#+end_src
+
+Arch: =sudo pacman -S isync notmuch gnupg=. Fedora: =sudo dnf install isync notmuch gnupg2=.
+
+The Emacs ~notmuch~ package is installed from *MELPA* by =use-package= on
+first launch, so you do NOT need the distro's =notmuch-emacs= package. (The
+CLI ~notmuch~ IS required — that's what the ELPA package drives.)
+
+* 2. GPG key
+
+=~/.authinfo.gpg= is encrypted to my personal key. If this machine has no
+key for =hall@absinthe.org= yet:
+
+#+begin_src sh
+gpg --quick-generate-key "Kevin Hall <hall@absinthe.org>"
+#+end_src
+
+To reuse the *same* key across machines (nicer — one identity everywhere),
+export it on an existing box and import here:
+
+#+begin_src sh
+# on the old machine:
+gpg --export-secret-keys --armor hall@absinthe.org > secret.asc
+# copy secret.asc over a trusted channel, then on the new machine:
+gpg --import secret.asc && rm -P secret.asc   # macOS; Linux: shred -u secret.asc
+#+end_src
+
+** macOS only: loopback pinentry
+
+A GUI =Emacs.app= has no controlling TTY, so gpg-agent cannot prompt for the
+key passphrase and decryption fails. =config.org= already sets
+=epa-pinentry-mode 'loopback= on macOS, but that also requires this line in
+the machine-local =~/.gnupg/gpg-agent.conf=:
+
+#+begin_src conf
+allow-loopback-pinentry
+#+end_src
+
+Then =gpgconf --kill gpg-agent= (or just re-login). On Linux with a working
+graphical pinentry under the desktop session this is not needed.
+
+* 3. Fastmail app password
+
+Fastmail requires an *app-specific password* for IMAP/SMTP (the normal login
+password will not work, especially with 2FA).
+
+1. Fastmail web UI -> *Settings -> Password & Security -> App Passwords*.
+2. *New App Password*, name it e.g. =emacs-notmuch=, scope it to *Mail
+   (IMAP/SMTP)*.
+3. Copy the generated password (looks like =abcd-efgh-ijkl-mnop=).
+
+Each machine can have its own app password (recommended — revoke per device),
+or share one. Never paste it into a chat or commit it anywhere.
+
+* 4. Secrets (=~/.authinfo.gpg=)
+
+Open the (new or existing) encrypted authinfo in Emacs so EasyPG handles the
+crypto: =C-x C-f ~/.authinfo.gpg=. Add these two lines (same app password on
+both), then =C-x C-s= (re-encrypts to the =hall@absinthe.org= key):
+
+#+begin_src text
+machine imap.fastmail.com login hall@absinthe.org password YOUR-APP-PASSWORD
+machine smtp.fastmail.com login hall@absinthe.org port 465 password YOUR-APP-PASSWORD
+#+end_src
+
+- ~mbsync~ reads the IMAP line via its =PassCmd= (an inline gpg+awk pipeline).
+- ~smtpmail~ finds the SMTP line automatically through ~auth-source~.
+
+Sanity check the extraction (does not reveal the secret):
+
+#+begin_src sh
+gpg -q --for-your-eyes-only --no-tty -d ~/.authinfo.gpg \
+ | awk '/machine imap.fastmail.com/{for(i=1;i<=NF;i++) if($i=="password") print "IMAP pw length="length($(i+1))}'
+#+end_src
+
+* 5. mbsync config (=~/.mbsyncrc=)
+
+Portable as-is (uses =$HOME=-relative paths). Copy verbatim on every machine.
+If TLS verification fails on a fresh Homebrew box, uncomment the matching
+=CertificateFile= line.
+
+#+begin_src conf
+# ~/.mbsyncrc — Fastmail <-> local Maildir sync for notmuch
+IMAPAccount fastmail
+Host imap.fastmail.com
+Port 993
+User hall@absinthe.org
+# Pull the password field from the imap.fastmail.com line in .authinfo.gpg.
+PassCmd "gpg -q --for-your-eyes-only --no-tty -d ~/.authinfo.gpg | awk '/machine imap.fastmail.com/{for(i=1;i<=NF;i++) if($i==\"password\") print $(i+1)}'"
+TLSType IMAPS
+AuthMechs LOGIN
+# If TLS verification fails, uncomment the matching path:
+# CertificateFile /opt/homebrew/etc/openssl@3/cert.pem   # macOS (Apple Silicon)
+# CertificateFile /etc/ssl/certs/ca-certificates.crt     # Linux
+
+IMAPStore fastmail-remote
+Account fastmail
+
+MaildirStore fastmail-local
+Subfolders Verbatim
+Path ~/Maildir/fastmail/
+Inbox ~/Maildir/fastmail/Inbox
+
+Channel fastmail
+Far :fastmail-remote:
+Near :fastmail-local:
+Patterns *
+Create Near
+Expunge Both
+SyncState *
+CopyArrivalDate yes
+#+end_src
+
+Requires isync >= 1.4 for the =Far=/=Near= keywords (1.5.x confirmed). On
+very old distros that ship isync 1.3, use =Master=/=Slave= instead.
+
+* 6. notmuch config (=~/.notmuch-config=)
+
+The ONLY line that changes per machine is =database.path= (it must be
+absolute). Set it to this machine's Maildir root:
+
+- macOS: =/Users/<you>/Maildir=
+- Linux: =/home/<you>/Maildir=
+
+#+begin_src conf
+[database]
+path=/home/hall/Maildir          # <-- macOS: /Users/hall/Maildir
+
+[user]
+name=E. Kevin Hall
+primary_email=hall@absinthe.org
+
+[new]
+tags=new;unread
+ignore=.mbsyncstate;.mbsyncstate.new;.mbsyncstate.journal;.uidvalidity;.DS_Store
+
+[search]
+exclude_tags=deleted;spam
+
+[maildir]
+synchronize_flags=true
+#+end_src
+
+* 7. notmuch hooks
+
+Hooks live in =<database.path>/.notmuch/hooks/= (i.e. =~/Maildir/.notmuch/hooks/=).
+They are machine-local; recreate them on each box and make them executable.
+
+#+begin_src sh
+mkdir -p ~/Maildir/.notmuch/hooks
+# ... create the two files below ...
+chmod +x ~/Maildir/.notmuch/hooks/pre-new ~/Maildir/.notmuch/hooks/post-new
+#+end_src
+
+** pre-new — flush deletions to Trash, then fetch
+
+Runs before every =notmuch new= (Emacs =G=, the 5-min timer, manual runs).
+
+#+begin_src sh
+#!/bin/sh
+# pre-new: (1) flush deletions to Fastmail Trash, then (2) fetch mail.
+TRASH_DIR="$HOME/Maildir/fastmail/Trash/cur"
+mkdir -p "$TRASH_DIR"
+
+# (1) Move `deleted`-tagged mail (not already in Trash) into the Trash maildir.
+#     mbsync then relocates it to Fastmail Trash (recoverable ~30 days).
+#     Strip isync's ",U=<n>" so the moved file is treated as a NEW Trash msg.
+notmuch search --output=files 'tag:deleted and not path:fastmail/Trash/**' 2>/dev/null \
+| while IFS= read -r src; do
+    [ -f "$src" ] || continue
+    base=$(basename "$src")
+    dst=$(printf '%s' "$base" | sed -E 's/,U=[0-9]+//')
+    mv -n "$src" "$TRASH_DIR/$dst"
+  done
+
+# (2) Fetch + push (propagates moves + flag changes; pulls new mail).
+mbsync -a || true
+#+end_src
+
+** post-new — map Fastmail folders to tags
+
+Runs after every =notmuch new=. NOTE: the folder names below are specific to
+*this Fastmail account*. Verify them on first sync with
+=ls ~/Maildir/fastmail/= and adjust if the account differs. Uses
+=path:.../**= (not =folder:=) because =folder:= does not match names with
+spaces (e.g. "Junk Mail").
+
+#+begin_src sh
+#!/bin/sh
+# post-new: map Fastmail folder location -> notmuch tags, then clear "new".
+set -e
+notmuch tag +inbox          -- 'tag:new and path:fastmail/Inbox/**'
+notmuch tag +archive        -- 'tag:new and path:fastmail/Archive/**'
+notmuch tag +draft          -- 'tag:new and path:fastmail/Drafts/**'
+# This account has three legacy Sent folders (Fastmail / Outlook / Apple Mail):
+notmuch tag +sent -unread   -- 'tag:new and (path:fastmail/Sent/** or path:"fastmail/Sent Items/**" or path:"fastmail/Sent Messages/**")'
+notmuch tag +spam    -inbox -- 'tag:new and path:"fastmail/Junk Mail/**"'
+notmuch tag +deleted -inbox -- 'tag:new and path:fastmail/Trash/**'
+notmuch tag -new -- tag:new
+#+end_src
+
+* 8. First sync and index
+
+#+begin_src sh
+mkdir -p ~/Maildir/fastmail
+mbsync -a          # first run prompts once for the GPG key passphrase
+ls ~/Maildir/fastmail/   # confirm folder names match the post-new hook
+notmuch new        # indexes everything and runs the hooks
+#+end_src
+
+Verify:
+
+#+begin_src sh
+notmuch count '*'            # total messages
+notmuch count tag:inbox      # should roughly match the Inbox folder
+notmuch count tag:unread
+#+end_src
+
+The first =mbsync= downloads the entire mailbox and can take several minutes;
+the first =notmuch new= indexes all of it (a couple of minutes).
+
+* 9. Emacs
+
+The mail config is already in =config.org= (section "Email (notmuch +
+Fastmail)"). Nothing to copy — just load it:
+
+- =C-c r=  — re-tangle + load =config.org=.
+- =C-c m=  — open notmuch. Saved searches: =j i= inbox, =j u= unread, etc.
+- =G=      — fetch + index + tag (also runs automatically every 5 min).
+- =d=      — delete (moves to Fastmail Trash on next sync; undo with =-deleted=).
+- =C-c C-c= in a compose buffer — send via Fastmail SMTP.
+
+See =~/Desktop/notmuch-cheatsheet.pdf= (or regenerate it) for the full key map.
+
+* How deletion and sending actually work
+
+- *Delete*: =d= tags a thread =deleted= (hidden immediately via
+  =search.exclude_tags=). Tagging =deleted= does NOT set any Maildir flag
+  (notmuch only syncs D/F/P/R/S), so it does nothing to Fastmail by itself.
+  On the next sync the =pre-new= hook *moves* the file into the Trash
+  maildir, and mbsync relocates it to Fastmail Trash — recoverable there
+  until Fastmail auto-purges (~30 days). Undo before the next sync with
+  =-deleted=.
+- *Send*: =smtpmail= delivers over =smtp.fastmail.com:465= (SSL), auth from
+  =~/.authinfo.gpg=. A copy is Fcc'd to the local =fastmail/Sent= maildir and
+  the next sync uploads it to Fastmail (Fastmail does not auto-save
+  SMTP-sent mail server-side).
+- *Read/flag state* round-trips: notmuch tags <-> Maildir flags <-> mbsync
+  <-> Fastmail (=synchronize_flags=true=).
+
+* Optional: OS-level background sync (mail while Emacs is closed)
+
+The Emacs timer only runs while Emacs is open. To sync in the background
+regardless, add a timer (not currently used — the Emacs poll is enough):
+
+** macOS — launchd LaunchAgent
+
+Create =~/Library/LaunchAgents/io.archetyp.notmuch-sync.plist= running
+=mbsync -a && notmuch new= every 300s, then =launchctl load= it.
+
+** Linux — systemd user timer
+
+Create =~/.config/systemd/user/notmuch-sync.service= (Type=oneshot running
+=mbsync -a && notmuch new=) plus a =notmuch-sync.timer= with
+=OnUnitActiveSec=5min=, then =systemctl --user enable --now notmuch-sync.timer=.
+
+* Troubleshooting / gotchas learned during setup
+
+- *Newest-first didn't stick from the global var.* Setting
+  =notmuch-search-oldest-first nil= wasn't honored in the live GUI for
+  reasons never fully explained. Fixed by pinning =:sort-order newest-first=
+  on each =notmuch-saved-searches= entry (per-search overrides the global
+  unconditionally). Also: sort order is *buffer-local* — kill and reopen a
+  search buffer (or press =o=) after changing it.
+- *"text is read-only" when pressing a saved-search letter.* On the hello /
+  search buffers, the letters (=i=, =u=, ...) are =notmuch-jump= shortcuts:
+  press =j= first, then the letter. A bare letter tries to type into a
+  read-only buffer.
+- *=folder:= returns 0 for folders with spaces* (e.g. "Junk Mail"). Use
+  =path:"fastmail/Junk Mail/**"= instead. This is why the hooks use =path:=.
+- *isync stores its UID in the maildir filename* as =,U=<n>=. When moving a
+  message between folders by hand (or in the pre-new hook), strip that field
+  or isync mis-maps the moved file.
+- *mbsync PassCmd hangs / no prompt.* The GPG passphrase isn't cached; run a
+  =gpg -d ~/.authinfo.gpg= once in a terminal to prime gpg-agent, and (macOS)
+  ensure loopback pinentry is set up.
+
+* Files at a glance (what's where)
+
+| File                                   | Tracked? | Per-machine change                 |
+|----------------------------------------+----------+------------------------------------|
+| =config.org= / =config.el=             | yes      | none (portable)                    |
+| =setup-notes.org= (this file)          | yes      | none                               |
+| =~/.mbsyncrc=                          | no       | none (copy verbatim)               |
+| =~/.notmuch-config=                    | no       | =database.path= absolute per OS    |
+| =~/.authinfo.gpg=                      | no       | own encrypted secret               |
+| =~/Maildir/.notmuch/hooks/pre-new=     | no       | none (chmod +x)                    |
+| =~/Maildir/.notmuch/hooks/post-new=    | no       | folder names if account differs    |
+| =~/.gnupg/gpg-agent.conf= (macOS)      | no       | =allow-loopback-pinentry=          |

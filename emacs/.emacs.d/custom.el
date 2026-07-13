@@ -18,7 +18,7 @@
    '(adwaita-dark-theme avy cape compat corfu doom-themes
 			doom-tomorrow-night elfeed elfeed-protocol
 			embark-consult exec-path-from-shell god-mode
-			magit marginalia mixed-pitch mood-line
+			magit marginalia mixed-pitch mood-line notmuch
 			olivetti orderless org-modern
 			rainbow-delimiters vertico vundo)))
 (custom-set-faces

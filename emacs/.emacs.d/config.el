@@ -390,9 +390,79 @@ line the way plain `TAB' / `org-cycle' require."
   (setq epa-pinentry-mode 'loopback))
 ;; Encrypted Files (EasyPG):2 ends here
 
-;; [[file:config.org::*Email][Email:1]]
+;; [[file:config.org::*Configuration][Configuration:1]]
+(use-package notmuch
+  :commands (notmuch notmuch-search notmuch-mua-new-mail)
+  :bind ("C-c m" . notmuch)
+  :config
+  (setq notmuch-show-logo nil
+        notmuch-search-oldest-first nil
+        ;; :sort-order newest-first is pinned per-search so it overrides the
+        ;; global `notmuch-search-oldest-first' unconditionally.
+        notmuch-saved-searches
+        '((:name "inbox"   :query "tag:inbox"   :key "i" :sort-order newest-first)
+          (:name "unread"  :query "tag:unread"  :key "u" :sort-order newest-first)
+          (:name "flagged" :query "tag:flagged" :key "f" :sort-order newest-first)
+          (:name "sent"    :query "tag:sent"    :key "s" :sort-order newest-first)
+          (:name "drafts"  :query "tag:draft"   :key "d" :sort-order newest-first)
+          (:name "all"     :query "*"           :key "a" :sort-order newest-first)))
+  ;; File sent mail into the local Sent maildir; mbsync uploads it to Fastmail.
+  (setq notmuch-fcc-dirs "fastmail/Sent"))
 
-;; Email:1 ends here
+;; Compose/send with notmuch's message-mode; deliver via Fastmail SMTP.
+;; The password comes from ~/.authinfo.gpg via auth-source (smtp.fastmail.com).
+(setq mail-user-agent         'notmuch-user-agent
+      send-mail-function       'smtpmail-send-it
+      message-send-mail-function 'smtpmail-send-it
+      smtpmail-smtp-server     "smtp.fastmail.com"
+      smtpmail-smtp-service    465
+      smtpmail-stream-type     'ssl
+      user-mail-address        "hall@absinthe.org"
+      user-full-name           "E. Kevin Hall"
+      message-kill-buffer-on-exit t)
+;; Configuration:1 ends here
+
+;; [[file:config.org::*Deleting mail (move to Fastmail Trash)][Deleting mail (move to Fastmail Trash):1]]
+(with-eval-after-load 'notmuch
+  (defun my/notmuch-search-delete ()
+    "Tag thread(s) `deleted' and advance; synced to Fastmail Trash on next poll."
+    (interactive)
+    (notmuch-search-tag '("+deleted" "-inbox" "-unread"))
+    (notmuch-search-next-thread))
+
+  (defun my/notmuch-show-delete ()
+    "Tag the current message `deleted' and move to the next thread."
+    (interactive)
+    (notmuch-show-tag '("+deleted" "-inbox" "-unread"))
+    (notmuch-show-next-thread t))
+
+  (define-key notmuch-search-mode-map (kbd "d") #'my/notmuch-search-delete)
+  (define-key notmuch-show-mode-map   (kbd "d") #'my/notmuch-show-delete))
+;; Deleting mail (move to Fastmail Trash):1 ends here
+
+;; [[file:config.org::*Auto-fetch every 5 minutes][Auto-fetch every 5 minutes:1]]
+(with-eval-after-load 'notmuch
+  (defvar my/notmuch-poll-process nil
+    "The most recent background `notmuch new' process, or nil.")
+
+  (defun my/notmuch-poll-async ()
+    "Run `notmuch new' in the background, then refresh notmuch buffers."
+    (when (or (null my/notmuch-poll-process)
+              (not (process-live-p my/notmuch-poll-process)))
+      (setq my/notmuch-poll-process
+            (make-process
+             :name "notmuch-poll" :buffer nil :noquery t
+             :command (list notmuch-command "new")
+             :sentinel (lambda (_proc event)
+                         (when (string-prefix-p "finished" event)
+                           (notmuch-refresh-all-buffers)))))))
+
+  (defvar my/notmuch-poll-timer nil
+    "Repeating timer that drives `my/notmuch-poll-async'.")
+  (when (timerp my/notmuch-poll-timer) (cancel-timer my/notmuch-poll-timer))
+  (setq my/notmuch-poll-timer
+        (run-with-timer 300 300 #'my/notmuch-poll-async)))
+;; Auto-fetch every 5 minutes:1 ends here
 
 ;; [[file:config.org::*Configuration][Configuration:1]]
 ;; defconst, not defvar: these are edited in this file and must update
