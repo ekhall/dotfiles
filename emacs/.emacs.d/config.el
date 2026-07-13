@@ -9,6 +9,13 @@
 (setq use-package-always-ensure t)
 ;; Package Management:1 ends here
 
+;; [[file:config.org::*Inherit the shell PATH (macOS)][Inherit the shell PATH (macOS):1]]
+(when (eq system-type 'darwin)
+  (use-package exec-path-from-shell
+    :config
+    (exec-path-from-shell-initialize)))
+;; Inherit the shell PATH (macOS):1 ends here
+
 ;; [[file:config.org::*Basic UI and Startup Behavior][Basic UI and Startup Behavior:1]]
 (setq inhibit-startup-message t)
 (menu-bar-mode -1)
@@ -373,6 +380,11 @@ never stack."
       epa-file-select-keys nil)
 ;; Encrypted Files (EasyPG):1 ends here
 
+;; [[file:config.org::*Encrypted Files (EasyPG)][Encrypted Files (EasyPG):2]]
+(when (eq system-type 'darwin)
+  (setq epa-pinentry-mode 'loopback))
+;; Encrypted Files (EasyPG):2 ends here
+
 ;; [[file:config.org::*Configuration][Configuration:1]]
 ;; defconst, not defvar: these are edited in this file and must update
 ;; on `C-c r'.  `defvar' only assigns when the symbol is unbound, so once
@@ -432,13 +444,52 @@ auth-source, never from this file."
                cleared marked (hash-table-count unread-set)))))
 
 (use-package elfeed
-  :bind ("C-c e" . elfeed))
+  :bind ("C-c e" . elfeed)
+  :config
+  (defun my/elfeed-search-print-entry (entry)
+    "Print ENTRY like the elfeed default, but right-align feed+tags.
+The date and title stay on the left; the feed name and tag list are
+pinned to the window's right edge, and the title column expands to
+fill the gap between them.  Widening the frame widens the title."
+    (let* ((date  (elfeed-search-format-date (elfeed-entry-date entry)))
+           (title (or (elfeed-meta entry :title) (elfeed-entry-title entry) ""))
+           (title-faces (elfeed-search--faces (elfeed-entry-tags entry)))
+           (feed  (elfeed-entry-feed entry))
+           (feed-title (when feed (or (elfeed-meta feed :title)
+                                      (elfeed-feed-title feed))))
+           (tags  (mapcar #'symbol-name (elfeed-entry-tags entry)))
+           (tags-str (concat "(" (mapconcat
+                                  (lambda (s) (propertize s 'face 'elfeed-search-tag-face))
+                                  tags ",")
+                             ")"))
+           (right (concat (when feed-title
+                            (propertize feed-title 'face 'elfeed-search-feed-face))
+                          " " tags-str))
+           ;; Leave room for the date, its trailing space, the right-hand
+           ;; block, and a one-column gap; floor at 16 so a narrow window
+           ;; still shows something.
+           (title-width (max 16 (- (window-width)
+                                   (string-width date)
+                                   (string-width right)
+                                   3)))
+           (title-column (elfeed-format-column title title-width :left)))
+      (insert (propertize date 'face 'elfeed-search-date-face) " ")
+      (insert (propertize title-column 'face title-faces 'kbd-help title) " ")
+      (insert right)))
+  (setq elfeed-search-print-entry-function #'my/elfeed-search-print-entry))
 
 (use-package elfeed-protocol
   :after elfeed
   :config
   (setq elfeed-use-curl t)
   (setq elfeed-protocol-enabled-protocols '(fever))
+  ;; FreshRSS's Fever API returns microsecond-timestamp item ids, not small
+  ;; sequential integers.  elfeed-protocol's default incremental `update' path
+  ;; requests the next 50 *consecutive* ids after the last seen one, so that
+  ;; window never matches a real item and `G' silently fetches nothing.  The
+  ;; unread-only path fetches by `unread_item_ids' instead, which works with any
+  ;; id format -- so keep this on for FreshRSS.
+  (setq elfeed-protocol-fever-update-unread-only t)
   ;; Bring FreshRSS categories in as Elfeed tags.
   (setq elfeed-protocol-fever-fetch-category-as-tag t)
   (setq elfeed-feeds

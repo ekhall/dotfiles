@@ -83,6 +83,31 @@ below will auto-install its package if it isn't already present.
   (setq use-package-always-ensure t)
 #+end_src
 
+** Inherit the shell PATH (macOS)
+
+A GUI ~Emacs.app~ launched from Finder/Dock/Spotlight -- or an Emacs
+daemon started by =launchd= -- does *not* inherit the login shell's
+=PATH=. It gets a bare =/usr/bin:/bin:/usr/sbin:/sbin=, which omits
+Homebrew's =/opt/homebrew/bin=. That makes ~executable-find~ miss
+~gpg~, so EasyPG's ~epg-find-configuration~ returns nil and opening any
+=.gpg= file (e.g. =~/.authinfo.gpg=, which holds the FreshRSS Fever
+password) fails with *"no usable configuration, OpenPGP"* -- even
+though ~gpg~ works fine from a terminal. On Linux this never happens
+because ~gpg~ lives in =/usr/bin=, which is always on =PATH=.
+
+[[https://github.com/purcell/exec-path-from-shell][exec-path-from-shell]] copies the real shell =PATH= (and =exec-path=)
+into Emacs at startup, fixing this for ~gpg~ and any other Homebrew
+CLI tool. Guarded by ~system-type~ (not ~window-system~, which is nil
+in a daemon frame) and wrapped in ~when~ so the shared =config.org=
+never installs or runs it on the Linux box.
+
+#+begin_src emacs-lisp
+(when (eq system-type 'darwin)
+  (use-package exec-path-from-shell
+    :config
+    (exec-path-from-shell-initialize)))
+#+end_src
+
 * Basic UI and Startup Behavior
 
 Trim the startup screen and chrome, and give new frames a bit more
@@ -763,6 +788,20 @@ not be used as a recipient (its private key isn't ours).
       epa-file-select-keys nil)
 #+end_src
 
+On macOS, a GUI ~Emacs.app~ or =launchd= daemon has no controlling TTY,
+so ~gpg-agent~ cannot pop the default curses ~pinentry~ to ask for the
+key passphrase and decryption fails. Loopback pinentry routes the
+prompt back through Emacs's own minibuffer instead. It requires
+~allow-loopback-pinentry~ in the machine-local =~/.gnupg/gpg-agent.conf=
+(not tracked here). Guarded by ~system-type~ so the shared config
+leaves the Linux box -- which already has a working graphical pinentry
+under X and may not enable loopback in its agent -- untouched.
+
+#+begin_src emacs-lisp
+(when (eq system-type 'darwin)
+  (setq epa-pinentry-mode 'loopback))
+#+end_src
+
 * Elfeed + FreshRSS (synced RSS)
 
 A feed reader whose read/unread state syncs with the self-hosted
@@ -814,6 +853,14 @@ Elfeed search buffer) closes that gap: it pulls the server's live
 ~unread_item_ids~ set and mirrors it onto the local entries, so
 reading elsewhere finally clears here. Run ~G~ for new articles, ~C-c
 E~ to reconcile what you read on another device.
+
+The search buffer's default line layout caps the title at
+~elfeed-search-title-max-width~ (70) and left-packs the feed name after
+it, wasting the right half of a wide frame. ~my/elfeed-search-print-entry~
+replaces ~elfeed-search-print-entry-function~ to instead right-align the
+feed+tags block to the window edge and let the title fill everything in
+between -- so widening the frame widens the title, on one line. It keeps
+the default faces and the ~kbd-help~ tooltip; only the geometry changes.
 
 #+begin_src emacs-lisp
 ;; defconst, not defvar: these are edited in this file and must update
@@ -874,7 +921,39 @@ auth-source, never from this file."
                cleared marked (hash-table-count unread-set)))))
 
 (use-package elfeed
-  :bind ("C-c e" . elfeed))
+  :bind ("C-c e" . elfeed)
+  :config
+  (defun my/elfeed-search-print-entry (entry)
+    "Print ENTRY like the elfeed default, but right-align feed+tags.
+The date and title stay on the left; the feed name and tag list are
+pinned to the window's right edge, and the title column expands to
+fill the gap between them.  Widening the frame widens the title."
+    (let* ((date  (elfeed-search-format-date (elfeed-entry-date entry)))
+           (title (or (elfeed-meta entry :title) (elfeed-entry-title entry) ""))
+           (title-faces (elfeed-search--faces (elfeed-entry-tags entry)))
+           (feed  (elfeed-entry-feed entry))
+           (feed-title (when feed (or (elfeed-meta feed :title)
+                                      (elfeed-feed-title feed))))
+           (tags  (mapcar #'symbol-name (elfeed-entry-tags entry)))
+           (tags-str (concat "(" (mapconcat
+                                  (lambda (s) (propertize s 'face 'elfeed-search-tag-face))
+                                  tags ",")
+                             ")"))
+           (right (concat (when feed-title
+                            (propertize feed-title 'face 'elfeed-search-feed-face))
+                          " " tags-str))
+           ;; Leave room for the date, its trailing space, the right-hand
+           ;; block, and a one-column gap; floor at 16 so a narrow window
+           ;; still shows something.
+           (title-width (max 16 (- (window-width)
+                                   (string-width date)
+                                   (string-width right)
+                                   3)))
+           (title-column (elfeed-format-column title title-width :left)))
+      (insert (propertize date 'face 'elfeed-search-date-face) " ")
+      (insert (propertize title-column 'face title-faces 'kbd-help title) " ")
+      (insert right)))
+  (setq elfeed-search-print-entry-function #'my/elfeed-search-print-entry))
 
 (use-package elfeed-protocol
   :after elfeed
