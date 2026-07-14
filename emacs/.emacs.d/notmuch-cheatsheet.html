@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>notmuch cheat sheet</title>
+<style>
+  :root{
+    --green:#16804f; --ink:#1b1f24; --sub:#6a7280; --line:#e4e7ea;
+    --card:#f6f7f8; --key:#24282c; --code:#eceef0; --codeink:#2a2f34;
+    --warnbg:#fdecec; --warnink:#b23b34; --warnline:#e0a29c;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  @page{size:letter;margin:0.42in 0.5in}
+  body{
+    font-family:-apple-system,"Helvetica Neue",Arial,sans-serif;
+    color:var(--ink); font-size:9px; line-height:1.32;
+  }
+  .mono{font-family:"SF Mono",Menlo,Consolas,monospace}
+
+  /* header */
+  header{display:flex;justify-content:space-between;align-items:flex-end;
+    border-bottom:3px solid var(--green);padding-bottom:7px;margin-bottom:10px}
+  h1{font-size:22px;font-weight:800;letter-spacing:-.4px}
+  h1 .g{color:var(--green)}
+  .subtitle{text-align:right;color:var(--sub);font-size:8.3px;line-height:1.5}
+  .subtitle b{color:var(--ink)}
+
+  /* columns */
+  .cols{column-count:2;column-gap:20px}
+  section{break-inside:avoid;margin-bottom:11px}
+
+  .h{display:flex;align-items:center;gap:6px;color:var(--green);
+    font-weight:700;font-size:9.5px;letter-spacing:.6px;text-transform:uppercase;
+    margin-bottom:5px}
+  .h .n{display:inline-flex;align-items:center;justify-content:center;
+    width:14px;height:14px;border-radius:50%;background:var(--green);color:#fff;
+    font-size:8.5px;font-weight:700}
+  .h .muted{color:var(--sub);font-weight:600;text-transform:none;letter-spacing:0}
+
+  /* key rows */
+  .rows{background:var(--card);border-radius:6px;padding:4px 8px}
+  .row{display:flex;align-items:baseline;gap:9px;padding:3px 0;
+    border-bottom:1px dotted #d7dbdf}
+  .row:last-child{border-bottom:0}
+  .row .k{flex:0 0 62px;white-space:nowrap}
+  .row .d{flex:1}
+  .row.num{counter-increment:step}
+  .row.num .k::before{content:counter(step);display:inline-flex;
+    align-items:center;justify-content:center;width:13px;height:13px;
+    margin-right:5px;border-radius:50%;background:var(--green);color:#fff;
+    font-size:7.5px;font-weight:700;vertical-align:middle}
+  .steps{counter-reset:step}
+
+  kbd{display:inline-block;font-family:"SF Mono",Menlo,Consolas,monospace;
+    font-size:8px;background:var(--key);color:#fff;border-radius:3px;
+    padding:1.5px 4px;line-height:1;box-shadow:0 1px 0 rgba(0,0,0,.35);
+    white-space:nowrap}
+  .sep{color:var(--sub)}
+
+  code{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:8px;
+    background:var(--code);color:var(--codeink);border-radius:3px;padding:1px 3px}
+
+  .note{color:var(--sub);font-size:8.2px;margin-top:4px;line-height:1.4}
+  .callout{background:var(--warnbg);border-left:3px solid var(--warnline);
+    border-radius:4px;color:var(--warnink);font-size:8.2px;line-height:1.42;
+    padding:5px 7px;margin-top:5px}
+  .callout b{color:var(--warnink)}
+
+  ul.tight{list-style:none;padding:0}
+  ul.tight li{position:relative;padding-left:9px;margin:3px 0;line-height:1.4}
+  ul.tight li::before{content:"";position:absolute;left:0;top:5px;
+    width:3px;height:3px;border-radius:50%;background:var(--green)}
+  .savedkeys{color:var(--sub);font-size:8.2px;margin-top:5px;line-height:1.55}
+
+  footer{margin-top:8px;padding-top:6px;border-top:1px solid var(--line);
+    text-align:center;color:var(--sub);font-size:7.6px}
+</style>
+</head>
+<body>
+  <header>
+    <h1>notmuch <span class="g">cheat sheet</span></h1>
+    <div class="subtitle">
+      Emacs mail · <b>Fastmail + Yale</b> (Outlook) · one unified notmuch<br>
+      Three buffers: <b>hello</b> → <b>search</b> (thread list) → <b>show</b> (one thread)
+    </div>
+  </header>
+
+  <div class="cols">
+
+    <!-- LEFT COLUMN -->
+    <section>
+      <div class="h"><span class="n">1</span> Start here</div>
+      <div class="rows steps">
+        <div class="row num"><div class="k"><kbd>C-c r</kbd></div><div class="d">re-tangle config &amp; load notmuch <span class="sep">(first time only, or after config edits)</span></div></div>
+        <div class="row num"><div class="k"><kbd>C-c m</kbd></div><div class="d">open the notmuch <b>hello</b> screen</div></div>
+        <div class="row num"><div class="k"><kbd>G</kbd></div><div class="d">fetch new mail from Fastmail + Yale + index + tag</div></div>
+      </div>
+      <div class="callout"><b>Lost?</b> Press <kbd>?</kbd> in <i>any</i> notmuch buffer for the full, live key list. <kbd>q</kbd> backs out of any buffer.</div>
+    </section>
+
+    <section>
+      <div class="h"><span class="n">2</span> The daily loop</div>
+      <div class="rows">
+        <div class="row"><div class="k"><kbd>C-c m</kbd></div><div class="d">open notmuch</div></div>
+        <div class="row"><div class="k"><kbd>G</kbd></div><div class="d">fetch new mail <span class="sep">(runs in background)</span></div></div>
+        <div class="row"><div class="k"><kbd>j</kbd> <kbd>i</kbd></div><div class="d">jump to inbox <span class="sep">(<kbd>j</kbd> then <kbd>i</kbd>)</span></div></div>
+        <div class="row"><div class="k"><kbd>n</kbd> <span class="sep">/</span> <kbd>RET</kbd></div><div class="d">move / open a thread</div></div>
+        <div class="row"><div class="k"><kbd>r</kbd></div><div class="d">reply <span class="sep">(to sender)</span></div></div>
+        <div class="row"><div class="k"><kbd>a</kbd></div><div class="d">archive &amp; move on</div></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="h">Hello screen <span class="muted">— dashboard</span></div>
+      <div class="rows">
+        <div class="row"><div class="k"><kbd>RET</kbd></div><div class="d">open search / thread at point</div></div>
+        <div class="row"><div class="k"><kbd>j</kbd></div><div class="d">jump to a saved search by key</div></div>
+        <div class="row"><div class="k"><kbd>s</kbd></div><div class="d">start a <b>new</b> search (type a query)</div></div>
+        <div class="row"><div class="k"><kbd>G</kbd></div><div class="d">poll: fetch + index + tag <span class="sep">(background)</span></div></div>
+        <div class="row"><div class="k"><kbd>g</kbd></div><div class="d">refresh the screen</div></div>
+        <div class="row"><div class="k"><kbd>q</kbd></div><div class="d">quit</div></div>
+      </div>
+      <div class="savedkeys"><b>Saved-search keys</b> (via <kbd>j</kbd>): <kbd>i</kbd> inbox (both) · <kbd>F</kbd> Fastmail · <kbd>Y</kbd> Yale · <kbd>u</kbd> unread · <kbd>f</kbd> flagged · <kbd>s</kbd> sent · <kbd>d</kbd> drafts · <kbd>a</kbd> all</div>
+    </section>
+
+    <section>
+      <div class="h">Thread list <span class="muted">(search buffer)</span></div>
+      <div class="rows">
+        <div class="row"><div class="k"><kbd>n</kbd> <span class="sep">/</span> <kbd>p</kbd></div><div class="d">next / previous thread</div></div>
+        <div class="row"><div class="k"><kbd>RET</kbd></div><div class="d">open the thread</div></div>
+        <div class="row"><div class="k"><kbd>a</kbd></div><div class="d">archive <span class="sep">(removes <code>inbox</code> tag)</span></div></div>
+        <div class="row"><div class="k"><kbd>d</kbd></div><div class="d">delete → Fastmail Trash <span class="sep">(recoverable)</span></div></div>
+        <div class="row"><div class="k"><kbd>+</kbd> <span class="sep">/</span> <kbd>-</kbd></div><div class="d">add / remove a tag (prompts)</div></div>
+        <div class="row"><div class="k"><kbd>*</kbd></div><div class="d">tag <b>all</b> threads in view</div></div>
+        <div class="row"><div class="k"><kbd>l</kbd></div><div class="d">filter / narrow this search</div></div>
+        <div class="row"><div class="k"><kbd>o</kbd></div><div class="d">toggle sort order for this buffer</div></div>
+        <div class="row"><div class="k"><kbd>G</kbd></div><div class="d">fetch new mail <span class="sep">(background)</span></div></div>
+        <div class="row"><div class="k"><kbd>q</kbd></div><div class="d">back to hello</div></div>
+      </div>
+    </section>
+
+    <!-- RIGHT COLUMN -->
+    <section>
+      <div class="h">Reading a thread <span class="muted">(show buffer)</span></div>
+      <div class="rows">
+        <div class="row"><div class="k"><kbd>RET</kbd></div><div class="d">collapse / expand message at point</div></div>
+        <div class="row"><div class="k"><kbd>n</kbd> <span class="sep">/</span> <kbd>p</kbd></div><div class="d">next / previous message in thread</div></div>
+        <div class="row"><div class="k"><kbd>SPC</kbd></div><div class="d">scroll; at end → next thread</div></div>
+        <div class="row"><div class="k"><kbd>r</kbd></div><div class="d">reply to <b>sender</b> only</div></div>
+        <div class="row"><div class="k"><kbd>R</kbd></div><div class="d">reply <b>all</b></div></div>
+        <div class="row"><div class="k"><kbd>f</kbd></div><div class="d">forward</div></div>
+        <div class="row"><div class="k"><kbd>w</kbd></div><div class="d">save attachment(s)</div></div>
+        <div class="row"><div class="k"><kbd>a</kbd></div><div class="d">archive thread</div></div>
+        <div class="row"><div class="k"><kbd>d</kbd></div><div class="d">delete → Fastmail Trash</div></div>
+        <div class="row"><div class="k"><kbd>q</kbd></div><div class="d">back to the list</div></div>
+      </div>
+      <div class="note">Attachments appear as buttons — <kbd>RET</kbd> on one to open, or <kbd>w</kbd> to save.</div>
+    </section>
+
+    <section>
+      <div class="h">Compose &amp; send</div>
+      <div class="rows">
+        <div class="row"><div class="k"><kbd>m</kbd></div><div class="d">new message (from hello / search)</div></div>
+        <div class="row"><div class="k"><kbd>C-c C-c</kbd></div><div class="d">send (via Fastmail SMTP)</div></div>
+        <div class="row"><div class="k"><kbd>C-c C-k</kbd></div><div class="d">cancel / kill the draft</div></div>
+      </div>
+      <div class="note">Sent mail is filed to the local <code>Sent</code> folder; the next <kbd>G</kbd> uploads it to Fastmail.</div>
+      <div class="callout"><b>Yale sending not set up yet</b> — all mail currently goes out via Fastmail SMTP. Don't send <i>as</i> <code>kevin.hall@yale.edu</code> until XOAUTH2 sending is wired up.</div>
+    </section>
+
+    <section>
+      <div class="h">Search syntax <span class="muted">(for <kbd>s</kbd> / <kbd>j</kbd>)</span></div>
+      <ul class="tight">
+        <li><code>tag:inbox</code> · <code>tag:unread</code> · <code>tag:sent</code> · <code>tag:fastmail</code> · <code>tag:yale</code></li>
+        <li><code>from:laura</code> · <code>to:hall@absinthe.org</code> · <code>subject:invoice</code></li>
+        <li><code>date:today</code> · <code>date:7d..</code> <span class="sep">(last 7 days)</span></li>
+        <li><code>date:2026-07-01..2026-07-13</code></li>
+        <li>combine with <b>and</b> / <b>or</b> / <b>not</b>:<br><code>tag:inbox and from:tastytrade</code></li>
+      </ul>
+    </section>
+
+    <section>
+      <div class="h">My setup at a glance</div>
+      <ul class="tight">
+        <li><b>Newest first</b> is my default; <kbd>o</kbd> flips one buffer. Inside a thread, messages always read oldest→newest.</li>
+        <li>Three Sent folders (<code>Sent</code>, <code>Sent Items</code>, <code>Sent Messages</code>) all show under <code>tag:sent</code>.</li>
+        <li>Junk Mail → <code>tag:spam</code>, Trash → <code>tag:deleted</code> — both hidden from default searches.</li>
+        <li><b>Two accounts, one index:</b> <code>tag:fastmail</code> / <code>tag:yale</code> filter by account; <kbd>j</kbd> <kbd>i</kbd> = both, <kbd>j</kbd> <kbd>Y</kbd> = Yale only.</li>
+        <li>Auto-sync every 5 min while Emacs is open; <kbd>G</kbd> forces it now <span class="sep">(in the background — the UI no longer blocks)</span>.</li>
+        <li><kbd>d</kbd> = delete moves mail to <b>Fastmail Trash</b> (recoverable ~30 days). Undo with <code>-deleted</code> before the next sync.</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <footer>notmuch + mbsync + smtpmail · press <kbd>?</kbd> in any buffer for the authoritative key list · docs: notmuchmail.org</footer>
+</body>
+</html>

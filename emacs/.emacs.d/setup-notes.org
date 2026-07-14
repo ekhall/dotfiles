@@ -353,7 +353,17 @@ Fastmail)"). Nothing to copy — just load it:
 - =d=      — delete (moves to Fastmail Trash on next sync; undo with =-deleted=).
 - =C-c C-c= in a compose buffer — send via Fastmail SMTP.
 
-See =~/Desktop/notmuch-cheatsheet.pdf= (or regenerate it) for the full key map.
+See =~/Desktop/notmuch-cheatsheet.pdf= for the full key map. It is generated
+from =emacs/.emacs.d/notmuch-cheatsheet.html= in this repo (a self-contained,
+print-styled one-pager). To regenerate the PDF after editing the HTML, render
+it with headless Chrome:
+
+#+begin_src sh
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new \
+  --disable-gpu --no-pdf-header-footer \
+  --print-to-pdf="$HOME/Desktop/notmuch-cheatsheet.pdf" \
+  "$HOME/dotfiles/emacs/.emacs.d/notmuch-cheatsheet.html"
+#+end_src
 
 * How deletion and sending actually work
 
