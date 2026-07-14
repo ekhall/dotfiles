@@ -3,6 +3,10 @@
 /emacs/.emacs.d/recentf
 /emacs/.emacs.d/elfeed
 
+# Emacs backup / autosave churn
+*~
+*.bak
+
 # --- mail: never commit secrets or machine-specific artifacts (PUBLIC repo) ---
 **/*.gpg
 **/*.token
