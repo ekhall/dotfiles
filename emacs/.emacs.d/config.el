@@ -693,6 +693,17 @@ fill the gap between them.  Widening the frame widens the title."
 (use-package org-web-tools
   :commands (org-web-tools-read-url-as-org org-web-tools-insert-link-for-url))
 
+;; `org-web-tools-read-url-as-org' takes the URL silently from the
+;; clipboard/kill-ring and never prompts.  This wrapper always asks, with any
+;; copied URL pre-filled as the default -- so `C-c u' works whether or not I
+;; copied a link first.
+(defun my/read-url-as-org (url)
+  "Read URL as a clean Org buffer, prompting (default: clipboard/kill-ring URL)."
+  (interactive (progn (require 'org-web-tools)
+                      (list (read-string "URL: " (org-web-tools--get-first-url)))))
+  (org-web-tools-read-url-as-org url))
+(global-set-key (kbd "C-c u") #'my/read-url-as-org)
+
 ;; A real WebKit view for pages eww can't handle (needs --with-xwidgets).
 (defun my/eww-open-in-xwidget ()
   "Reopen the current eww page in an embedded WebKit (xwidget) view."

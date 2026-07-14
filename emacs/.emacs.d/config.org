@@ -55,6 +55,7 @@ size their columns independently, so they never line up). Realign with
 | Web (eww)            | R               | eww-readable                  | show just the extracted article                |
 |                      | M-I             | eww-toggle-images             | toggle images on / off                         |
 |                      | W               | my/eww-open-in-xwidget        | reopen page in WebKit (xwidget)                |
+|                      | C-c u           | my/read-url-as-org            | read a URL (prompted) as clean Org             |
 
 * Introduction
 
@@ -1356,8 +1357,11 @@ Three upgrades layered on top of eww:
   ~eww-after-render-hook~) adds the outline/navigation.
 - *org-web-tools* fetches a URL, runs readability, and converts the article
   into a clean *Org buffer* (headings, links, no chrome) -- the best
-  distraction-free read of a content-in-HTML page. ~M-x
-  org-web-tools-read-url-as-org~. Needs =pandoc= for the HTML->Org conversion.
+  distraction-free read of a content-in-HTML page (needs =pandoc=). Its
+  ~org-web-tools-read-url-as-org~ takes the URL *silently from the
+  clipboard/kill-ring* and never prompts (so: eww ~w~ to copy the page URL,
+  then run it). ~C-c u~ (~my/read-url-as-org~) is a wrapper that always
+  prompts, with any copied URL pre-filled as the default.
 - *xwidget-webkit* is a real embedded WebKit engine (this build is
   ~--with-xwidgets~) for the JavaScript-heavy pages ~eww~ can't render at all.
   In eww, ~W~ reopens the current page in WebKit; ~M-x
@@ -1375,6 +1379,17 @@ Three upgrades layered on top of eww:
 
 (use-package org-web-tools
   :commands (org-web-tools-read-url-as-org org-web-tools-insert-link-for-url))
+
+;; `org-web-tools-read-url-as-org' takes the URL silently from the
+;; clipboard/kill-ring and never prompts.  This wrapper always asks, with any
+;; copied URL pre-filled as the default -- so `C-c u' works whether or not I
+;; copied a link first.
+(defun my/read-url-as-org (url)
+  "Read URL as a clean Org buffer, prompting (default: clipboard/kill-ring URL)."
+  (interactive (progn (require 'org-web-tools)
+                      (list (read-string "URL: " (org-web-tools--get-first-url)))))
+  (org-web-tools-read-url-as-org url))
+(global-set-key (kbd "C-c u") #'my/read-url-as-org)
 
 ;; A real WebKit view for pages eww can't handle (needs --with-xwidgets).
 (defun my/eww-open-in-xwidget ()
