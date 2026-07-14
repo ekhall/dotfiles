@@ -115,8 +115,8 @@ never installs or runs it on the Linux box.
 Trim the startup screen and chrome, and give new frames a bit more
 room. Frame dimensions are per-machine, same reasoning as the font
 height below: the Linux box keeps its original 45-line-tall default
-(width unspecified), while ~KevinsMacStudio~ opens at 100x60
-characters.
+(width unspecified), ~KevinsMacStudio~ opens at 100x60 characters, and
+this machine opens at 115x52.
 
 ~use-short-answers~ (Emacs 28+) makes every ~yes-or-no-p~ prompt
 accept a single ~y~/~n~ keypress instead of a typed-out "yes"/"no"
@@ -129,11 +129,14 @@ followed by ~RET~ -- the modern replacement for the old
 (tool-bar-mode -1)
 (setq visible-bell t)
 (setq use-short-answers t)
-(if (string-prefix-p "KevinsMacStudio" (system-name))
-    (progn
-      (add-to-list 'default-frame-alist '(width . 100))
-      (add-to-list 'default-frame-alist '(height . 60)))
-  (add-to-list 'default-frame-alist '(height . 45)))
+(cond ((string-prefix-p "KevinsMacStudio" (system-name))
+       (add-to-list 'default-frame-alist '(width . 100))
+       (add-to-list 'default-frame-alist '(height . 60)))
+      ((string-prefix-p "MWC9JXJTGDXD" (system-name))
+       (add-to-list 'default-frame-alist '(width . 115))
+       (add-to-list 'default-frame-alist '(height . 52)))
+      (t
+       (add-to-list 'default-frame-alist '(height . 45))))
 #+end_src
 
 ** Smooth scrolling through tall images
@@ -207,7 +210,7 @@ falling back to its default \"Sans Serif\"."
      :family (or mono-font (face-attribute 'default :family))
      ;; Per-machine default height (variable-pitch inherits this).
      :height (cond ((string-prefix-p "KevinsMacStudio" (system-name)) 180)
-                   ((string-prefix-p "MWC9JXJTGDXD" (system-name)) 160)
+                   ((string-prefix-p "MWC9JXJTGDXD" (system-name)) 170)
                    (t 130)))
     (when prose-font
       ;; Family only: leaving :height unspecified lets variable-pitch

@@ -103,6 +103,11 @@ gpg --export-secret-keys --armor hall@absinthe.org > secret.asc
 gpg --import secret.asc && rm -P secret.asc   # macOS; Linux: shred -u secret.asc
 #+end_src
 
+A per-machine key is also fine — each box generates its own =hall@absinthe.org=
+key and =~/.authinfo.gpg= is written fresh on that machine (Fastmail app
+password + FreshRSS Fever password re-entered locally). Nothing then needs the
+old key. This mac (=MWC9JXJTGDXD=) was set up that way.
+
 ** macOS only: loopback pinentry
 
 A GUI =Emacs.app= has no controlling TTY, so gpg-agent cannot prompt for the
@@ -116,6 +121,34 @@ allow-loopback-pinentry
 
 Then =gpgconf --kill gpg-agent= (or just re-login). On Linux with a working
 graphical pinentry under the desktop session this is not needed.
+
+Loopback covers *Emacs's own* =.gpg= access (authinfo, elfeed). It does NOT
+help the background =mbsync= poll, whose =PassCmd= runs =gpg= / =mutt_oauth2.py=
+directly — outside Emacs — so those still need gpg-agent to decrypt
+non-interactively. With only the default 10-minute cache, the Yale poll starts
+failing once the cache lapses (=Difficulty decrypting token file...= from
+=mutt_oauth2.py=; Fastmail's =PassCmd= fails the same way).
+
+** macOS: pinentry-mac for unattended decryption (recommended)
+
+The robust fix is =pinentry-mac=: a native passphrase dialog that can store the
+passphrase in the login Keychain, so both GUI Emacs and the background poll
+authenticate without prompting.
+
+#+begin_src sh
+brew install pinentry-mac
+#+end_src
+
+Add to =~/.gnupg/gpg-agent.conf= (keep =allow-loopback-pinentry= for Emacs):
+
+#+begin_src conf
+pinentry-program /opt/homebrew/bin/pinentry-mac
+#+end_src
+
+Then =gpgconf --kill gpg-agent=. On the next decrypt (e.g. =mbsync -a=) the
+dialog appears once — enter the passphrase and tick *Save in Keychain*; it is
+then unattended. This supersedes the "prime the agent manually" workaround for
+Yale gotcha #3. (Linux uses its desktop pinentry; not needed there.)
 
 * 3. Fastmail app password
 
@@ -563,7 +596,20 @@ Create =~/.config/systemd/user/notmuch-sync.service= (Type=oneshot running
   or isync mis-maps the moved file.
 - *mbsync PassCmd hangs / no prompt.* The GPG passphrase isn't cached; run a
   =gpg -d ~/.authinfo.gpg= once in a terminal to prime gpg-agent, and (macOS)
-  ensure loopback pinentry is set up.
+  ensure loopback pinentry is set up. Better long-term fix on macOS: install
+  =pinentry-mac= and save the passphrase to Keychain (see [[*macOS: pinentry-mac for unattended decryption (recommended)]]).
+- *(macOS, not mail) Emacs won't launch after a Homebrew upgrade* —
+  =dyld: Library not loaded: .../libMagickWand-7.Q16HDRI.NN.dylib=. =emacs-plus=
+  is built against ImageMagick's current soname; a later =brew upgrade= that
+  bumps ImageMagick's ABI (e.g. compat 11↔12, soname =.10=↔=.11=) leaves the
+  binary linked to a version that no longer exists. A symlink can't bridge a
+  *major* ABI change. Rebuild against the installed ImageMagick with the same
+  options it was installed with (check =INSTALL_RECEIPT.json=):
+  : brew reinstall emacs-plus@30 --with-xwidgets --with-imagemagick --with-mailutils
+  Also note =/Applications/Emacs.app= is a real =cp -r= copy per the emacs-plus
+  caveats, so a rebuild won't refresh it; this mac instead symlinks it
+  (=/Applications/Emacs.app -> /opt/homebrew/opt/emacs-plus@30/Emacs.app=) so
+  future rebuilds are picked up automatically.
 
 * Files at a glance (what's where)
 
@@ -585,4 +631,4 @@ machine-local files below (they're deliberately NOT in the public repo).
 | =~/.authinfo.gpg=                      | *no* (secret)      | own encrypted secret                |
 | =~/.mutt_oauth2_yale.token=            | *no* (secret)      | own encrypted OAuth token           |
 | =~/.local/lib/sasl2/libxoauth2.so=     | *no* (binary)      | rebuild per OS; Linux -> system dir |
-| =~/.gnupg/gpg-agent.conf= (macOS)      | *no* (local)       | =allow-loopback-pinentry=           |
+| =~/.gnupg/gpg-agent.conf= (macOS)      | *no* (local)       | =allow-loopback-pinentry= + =pinentry-program= (pinentry-mac) |

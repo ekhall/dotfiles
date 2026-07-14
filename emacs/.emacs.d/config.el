@@ -22,11 +22,14 @@
 (tool-bar-mode -1)
 (setq visible-bell t)
 (setq use-short-answers t)
-(if (string-prefix-p "KevinsMacStudio" (system-name))
-    (progn
-      (add-to-list 'default-frame-alist '(width . 100))
-      (add-to-list 'default-frame-alist '(height . 60)))
-  (add-to-list 'default-frame-alist '(height . 45)))
+(cond ((string-prefix-p "KevinsMacStudio" (system-name))
+       (add-to-list 'default-frame-alist '(width . 100))
+       (add-to-list 'default-frame-alist '(height . 60)))
+      ((string-prefix-p "MWC9JXJTGDXD" (system-name))
+       (add-to-list 'default-frame-alist '(width . 115))
+       (add-to-list 'default-frame-alist '(height . 52)))
+      (t
+       (add-to-list 'default-frame-alist '(height . 45))))
 ;; Basic UI and Startup Behavior:1 ends here
 
 ;; [[file:config.org::*Smooth scrolling through tall images][Smooth scrolling through tall images:1]]
@@ -55,7 +58,7 @@ falling back to its default \"Sans Serif\"."
      :family (or mono-font (face-attribute 'default :family))
      ;; Per-machine default height (variable-pitch inherits this).
      :height (cond ((string-prefix-p "KevinsMacStudio" (system-name)) 180)
-                   ((string-prefix-p "MWC9JXJTGDXD" (system-name)) 160)
+                   ((string-prefix-p "MWC9JXJTGDXD" (system-name)) 170)
                    (t 130)))
     (when prose-font
       ;; Family only: leaving :height unspecified lets variable-pitch
