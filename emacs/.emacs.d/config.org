@@ -136,6 +136,21 @@ followed by ~RET~ -- the modern replacement for the old
   (add-to-list 'default-frame-alist '(height . 45)))
 #+end_src
 
+** Smooth scrolling through tall images
+
+Line-based scrolling treats an image as a single tall "line": if it is
+taller than the window, ~scroll-up-command~ cannot stop partway into it
+and instead jumps clear past it to the next line -- so an article with a
+big image (e.g. an Elfeed entry) skips the image entirely. ~pixel-scroll-
+precision-mode~ scrolls by pixels instead, gliding smoothly through
+over-tall images. It rebinds the mouse wheel / trackpad and
+~PageUp~/~PageDown~; the keyboard ~SPC~ paging in ~elfeed-show~ is remapped
+separately in the [[*Elfeed + FreshRSS (synced RSS)][Elfeed]] block.
+
+#+begin_src emacs-lisp
+(pixel-scroll-precision-mode 1)
+#+end_src
+
 ** Fonts
 
 Try SF Mono first, then Menlo (macOS's own default monospace,
@@ -190,7 +205,10 @@ falling back to its default \"Sans Serif\"."
     (set-face-attribute
      'default nil
      :family (or mono-font (face-attribute 'default :family))
-     :height (if (string-prefix-p "KevinsMacStudio" (system-name)) 180 130))
+     ;; Per-machine default height (variable-pitch inherits this).
+     :height (cond ((string-prefix-p "KevinsMacStudio" (system-name)) 180)
+                   ((string-prefix-p "MWC9JXJTGDXD" (system-name)) 160)
+                   (t 130)))
     (when prose-font
       ;; Family only: leaving :height unspecified lets variable-pitch
       ;; inherit the per-machine default height above, so `prose-mode's
@@ -1138,7 +1156,16 @@ fill the gap between them.  Widening the frame widens the title."
       (insert (propertize date 'face 'elfeed-search-date-face) " ")
       (insert (propertize title-column 'face title-faces 'kbd-help title) " ")
       (insert right)))
-  (setq elfeed-search-print-entry-function #'my/elfeed-search-print-entry))
+  (setq elfeed-search-print-entry-function #'my/elfeed-search-print-entry)
+  ;; `elfeed-show' renders articles with shr; an image taller than the
+  ;; window makes the default SPC/DEL (`scroll-up/down-command') jump
+  ;; clear past it, so entries with big images are hard to read (see
+  ;; `pixel-scroll-precision-mode' in Basic UI).  Remap paging to pixel
+  ;; interpolation so SPC/DEL glide smoothly through tall images.
+  (with-eval-after-load 'elfeed-show
+    (define-key elfeed-show-mode-map (kbd "SPC")   #'pixel-scroll-interpolate-down)
+    (define-key elfeed-show-mode-map (kbd "S-SPC") #'pixel-scroll-interpolate-up)
+    (define-key elfeed-show-mode-map (kbd "DEL")   #'pixel-scroll-interpolate-up)))
 
 (use-package elfeed-protocol
   :after elfeed

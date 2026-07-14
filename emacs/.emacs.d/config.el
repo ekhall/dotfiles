@@ -29,6 +29,10 @@
   (add-to-list 'default-frame-alist '(height . 45)))
 ;; Basic UI and Startup Behavior:1 ends here
 
+;; [[file:config.org::*Smooth scrolling through tall images][Smooth scrolling through tall images:1]]
+(pixel-scroll-precision-mode 1)
+;; Smooth scrolling through tall images:1 ends here
+
 ;; [[file:config.org::*Fonts][Fonts:1]]
 (defun my/apply-font-settings ()
   "Set the default and variable-pitch face families for this machine.
@@ -49,7 +53,10 @@ falling back to its default \"Sans Serif\"."
     (set-face-attribute
      'default nil
      :family (or mono-font (face-attribute 'default :family))
-     :height (if (string-prefix-p "KevinsMacStudio" (system-name)) 180 130))
+     ;; Per-machine default height (variable-pitch inherits this).
+     :height (cond ((string-prefix-p "KevinsMacStudio" (system-name)) 180)
+                   ((string-prefix-p "MWC9JXJTGDXD" (system-name)) 160)
+                   (t 130)))
     (when prose-font
       ;; Family only: leaving :height unspecified lets variable-pitch
       ;; inherit the per-machine default height above, so `prose-mode's
@@ -559,7 +566,16 @@ fill the gap between them.  Widening the frame widens the title."
       (insert (propertize date 'face 'elfeed-search-date-face) " ")
       (insert (propertize title-column 'face title-faces 'kbd-help title) " ")
       (insert right)))
-  (setq elfeed-search-print-entry-function #'my/elfeed-search-print-entry))
+  (setq elfeed-search-print-entry-function #'my/elfeed-search-print-entry)
+  ;; `elfeed-show' renders articles with shr; an image taller than the
+  ;; window makes the default SPC/DEL (`scroll-up/down-command') jump
+  ;; clear past it, so entries with big images are hard to read (see
+  ;; `pixel-scroll-precision-mode' in Basic UI).  Remap paging to pixel
+  ;; interpolation so SPC/DEL glide smoothly through tall images.
+  (with-eval-after-load 'elfeed-show
+    (define-key elfeed-show-mode-map (kbd "SPC")   #'pixel-scroll-interpolate-down)
+    (define-key elfeed-show-mode-map (kbd "S-SPC") #'pixel-scroll-interpolate-up)
+    (define-key elfeed-show-mode-map (kbd "DEL")   #'pixel-scroll-interpolate-up)))
 
 (use-package elfeed-protocol
   :after elfeed
