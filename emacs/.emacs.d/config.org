@@ -989,8 +989,15 @@ the main thread, so the UI never freezes mid-sync. A guard skips a new run
 while the previous one is still going (notmuch takes a database lock, so
 overlapping runs would error), and the timer is cancelled-then-recreated on
 every ~C-c r~ so reloads don't stack timers. Polling begins once notmuch is
-first loaded in a session (i.e. after my first ~C-c m~); ~G~ still forces
-an immediate sync any time.
+first loaded in a session (i.e. after my first ~C-c m~).
+
+~G~ (normally the built-in *synchronous* ~notmuch-poll-and-refresh-this-buffer~,
+which blocks Emacs for the whole ~mbsync -a~ + index round-trip -- seconds, or
+much longer when Office 365 throttles Yale) is rebound in the notmuch buffers to
+trigger this *same* background poll. A manual sync then no longer freezes the
+UI: ~G~ returns immediately and the open buffers refresh themselves when the
+fetch finishes, exactly like the timer. Trade-off: results aren't guaranteed
+present the instant ~G~ returns -- new mail appears a moment later on its own.
 
 #+begin_src emacs-lisp
 (with-eval-after-load 'notmuch
@@ -1008,6 +1015,22 @@ an immediate sync any time.
              :sentinel (lambda (_proc event)
                          (when (string-prefix-p "finished" event)
                            (notmuch-refresh-all-buffers)))))))
+
+  (defun my/notmuch-poll-refresh ()
+    "Non-blocking replacement for `G' (`notmuch-poll-and-refresh-this-buffer').
+Kick off the background `notmuch new' (see `my/notmuch-poll-async')
+instead of the built-in synchronous poll, so a manual sync never freezes
+the UI.  Open buffers refresh when the fetch finishes; if a poll is
+already running, just say so rather than starting a second one."
+    (interactive)
+    (if (and my/notmuch-poll-process (process-live-p my/notmuch-poll-process))
+        (message "notmuch: a background sync is already running…")
+      (my/notmuch-poll-async)
+      (message "notmuch: syncing mail in the background…")))
+
+  (define-key notmuch-search-mode-map (kbd "G") #'my/notmuch-poll-refresh)
+  (define-key notmuch-hello-mode-map  (kbd "G") #'my/notmuch-poll-refresh)
+  (define-key notmuch-show-mode-map   (kbd "G") #'my/notmuch-poll-refresh)
 
   (defvar my/notmuch-poll-timer nil
     "Repeating timer that drives `my/notmuch-poll-async'.")

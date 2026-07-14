@@ -479,6 +479,22 @@ line the way plain `TAB' / `org-cycle' require."
                          (when (string-prefix-p "finished" event)
                            (notmuch-refresh-all-buffers)))))))
 
+  (defun my/notmuch-poll-refresh ()
+    "Non-blocking replacement for `G' (`notmuch-poll-and-refresh-this-buffer').
+Kick off the background `notmuch new' (see `my/notmuch-poll-async')
+instead of the built-in synchronous poll, so a manual sync never freezes
+the UI.  Open buffers refresh when the fetch finishes; if a poll is
+already running, just say so rather than starting a second one."
+    (interactive)
+    (if (and my/notmuch-poll-process (process-live-p my/notmuch-poll-process))
+        (message "notmuch: a background sync is already running…")
+      (my/notmuch-poll-async)
+      (message "notmuch: syncing mail in the background…")))
+
+  (define-key notmuch-search-mode-map (kbd "G") #'my/notmuch-poll-refresh)
+  (define-key notmuch-hello-mode-map  (kbd "G") #'my/notmuch-poll-refresh)
+  (define-key notmuch-show-mode-map   (kbd "G") #'my/notmuch-poll-refresh)
+
   (defvar my/notmuch-poll-timer nil
     "Repeating timer that drives `my/notmuch-poll-async'.")
   (when (timerp my/notmuch-poll-timer) (cancel-timer my/notmuch-poll-timer))
