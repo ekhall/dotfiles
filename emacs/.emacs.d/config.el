@@ -86,7 +86,7 @@ falling back to its default \"Sans Serif\"."
   (setq doom-themes-enable-bold t
         doom-themes-enable-italic t)
 
-  ;; Load the theme (choose your favorite).
+  ;; Load the theme (choose my favorite).
   (load-theme 'doom-tomorrow-night t)
 
   ;; Enable flashing mode-line on errors.

@@ -26,7 +26,7 @@ C-c~. Update it whenever a keybinding below changes.
 | C-,             | embark-dwim                   | default Embark action                          |
 | C-h B           | embark-bindings               | list bindings via Embark                       |
 | M-A             | marginalia-cycle              | cycle annotation style (in minibuffer)         |
-| C-;             | avy-goto-char-timer           | jump to chars, type until you pause            |
+| C-;             | avy-goto-char-timer           | jump to chars, type until I pause            |
 | C-:             | avy-goto-char-2               | jump to an exact 2-char match                  |
 | M-g w           | avy-goto-word-1               | jump to a word                                 |
 | M-g l           | avy-goto-line                 | jump to a line                                 |
@@ -46,7 +46,7 @@ loads is generated from the ~emacs-lisp~ source blocks in this file:
 ~init.el~ tangles this file into ~config.el~ and loads that on every
 startup (only re-tangling when this file is newer than ~config.el~).
 
-To change your configuration, edit *this file*, not ~init.el~ or
+To change my configuration, edit *this file*, not ~init.el~ or
 ~config.el~ — the latter is generated and any hand edits to it will
 be silently overwritten on the next startup.
 
@@ -257,7 +257,7 @@ so ~load-theme~ never stops to prompt.
   (setq doom-themes-enable-bold t
         doom-themes-enable-italic t)
 
-  ;; Load the theme (choose your favorite).
+  ;; Load the theme (choose my favorite).
   (load-theme 'doom-tomorrow-night t)
 
   ;; Enable flashing mode-line on errors.
@@ -336,8 +336,8 @@ result into the running daemon. This is a named command rather
 than an anonymous lambda so it is discoverable via ~M-x~ and
 which-key, and self-documenting in this table.
 
-Note this is an *additive* reload: it applies settings you add or
-change, but does not undo things you remove (a deleted keybinding,
+Note this is an *additive* reload: it applies settings I add or
+change, but does not undo things I remove (a deleted keybinding,
 hook, or ~(mode 1)~ persists in the running image). For a
 guaranteed-clean state, restart the daemon:
 ~systemctl --user restart emacs~.
@@ -360,7 +360,7 @@ undone until a full restart."
 ** Which-Key
 
 Pops up a list of possible continuations (and what they run) a
-short moment after you press a prefix key like ~C-x~ or ~M-g~. Handy
+short moment after I press a prefix key like ~C-x~ or ~M-g~. Handy
 for this config specifically since it now defines several
 non-default prefixes and single-key overrides.
 
@@ -525,12 +525,12 @@ Vertical, minimalistic completion UI for the minibuffer.
 
 Corfu and Cape are the in-buffer counterpart to the Vertico stack
 above: instead of completing in the minibuffer, they pop up
-completions at point as you type.
+completions at point as I type.
 
 ** Cape
 
 Supplies extra completion-at-point sources for Corfu to show:
-~cape-dabbrev~ (nearby words already in your buffers), ~cape-file~
+~cape-dabbrev~ (nearby words already in my buffers), ~cape-file~
 (filesystem paths), and ~cape-keyword~ (language keywords).
 
 #+begin_src emacs-lisp
@@ -564,7 +564,7 @@ short key sequence on every match, and pressing that sequence moves
 point straight there. Faster than repeated ~C-s~ or arrow/line
 hopping for on-screen jumps.
 
-- ~C-;~ types characters until you pause, then shows hints for every
+- ~C-;~ types characters until I pause, then shows hints for every
   match (handles "two or more characters" queries).
 - ~C-:~ jumps to an exact two-character match.
 - ~M-g w~ jumps to a word by its first character(s).
@@ -587,7 +587,7 @@ any Org buffer (including this file).
 
 ** God Mode
 
-God-mode lets you invoke ~C-~/~M-~ bound commands without holding
+God-mode lets me invoke ~C-~/~M-~ bound commands without holding
 modifier keys: while it's active, plain key presses are interpreted
 as if Control were held (e.g. ~xf~ runs ~C-x C-f~), and a leading
 ~g~/~G~ switches the next key to Meta/Control-Meta.
@@ -654,7 +654,7 @@ A distraction-free environment for long-form prose (a book, essays),
 loosely modeled on Ulysses on macOS. Rather than hooking these into
 every =org-mode= buffer -- which would drag agenda files, notes, and
 this config itself into proportional fonts and a narrow column -- they
-are bundled into a single ~prose-mode~ minor mode you toggle on
+are bundled into a single ~prose-mode~ minor mode I toggle on
 demand with ~C-c w~, or auto-enable per file with a "Local Variables"
 footer (see below).
 
@@ -694,7 +694,7 @@ Mac Studio already opens at an 18pt default, so it gets no bump;
 =framework=, at ~13pt, gets a single ~text-scale-mode-step~ (~1.2x)
 for a slightly more comfortable reading size. Because it is a
 per-buffer zoom rather than a global font change, ~C-x C-=~ / ~C-x
-C--~ still nudge it further while you write.
+C--~ still nudge it further while I write.
 
 #+begin_src emacs-lisp
 (defvar my/prose-text-scale
@@ -744,15 +744,15 @@ file-local footer as the *last* lines of that ~.org~ file:
 # End:
 #+end_example
 
-Emacs will offer to mark the ~eval~ form safe the first time you open
+Emacs will offer to mark the ~eval~ form safe the first time I open
 the file; accept it and the mode activates automatically on every
 visit thereafter -- while leaving every other Org file untouched.
 
 ** Folding a Section From Its Body
 
 Plain ~TAB~ / ~org-cycle~ only fold when point is *on* the heading
-line, so from inside an entry's body text you would first have to
-jump up to the =*= headline. When drafting long prose you are almost
+line, so from inside an entry's body text I would first have to
+jump up to the =*= headline. When drafting long prose I am almost
 always in the body, which makes that round-trip a nuisance.
 
 ~my/org-fold-current-subtree~ folds the subtree containing point from
@@ -989,7 +989,7 @@ the main thread, so the UI never freezes mid-sync. A guard skips a new run
 while the previous one is still going (notmuch takes a database lock, so
 overlapping runs would error), and the timer is cancelled-then-recreated on
 every ~C-c r~ so reloads don't stack timers. Polling begins once notmuch is
-first loaded in a session (i.e. after your first ~C-c m~); ~G~ still forces
+first loaded in a session (i.e. after my first ~C-c m~); ~G~ still forces
 an immediate sync any time.
 
 #+begin_src emacs-lisp
@@ -1066,7 +1066,7 @@ fix it). ~my/elfeed-freshrss-clear-read~ (bound to ~C-c E~ in the
 Elfeed search buffer) closes that gap: it pulls the server's live
 ~unread_item_ids~ set and mirrors it onto the local entries, so
 reading elsewhere finally clears here. Run ~G~ for new articles, ~C-c
-E~ to reconcile what you read on another device.
+E~ to reconcile what I read on another device.
 
 The search buffer's default line layout caps the title at
 ~elfeed-search-title-max-width~ (70) and left-packs the feed name after
