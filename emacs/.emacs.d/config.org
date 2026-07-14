@@ -817,6 +817,21 @@ runs ~jinx-languages~ to switch dictionaries on the fly.
          ("C-M-$" . jinx-languages)))
 #+end_src
 
+** Turn off ispell word-completion in text buffers
+
+Emacs 30 enables ~ispell~-dictionary word completion in every ~text-mode~
+buffer: the ~text-mode-ispell-word-completion~ default adds
+~ispell-completion-at-point~ to ~completion-at-point-functions~. With
+~corfu-auto~ that auto-pops dictionary words while typing -- even inside email
+addresses and Subject lines when composing a message (=@absinthe.org= wants to
+become =@absinthe.orgy=). Jinx already handles spelling, so switch this
+completer off. Header *address* completion (~message-completion-function~) and
+the Cape sources are unaffected.
+
+#+begin_src emacs-lisp
+(setq text-mode-ispell-word-completion nil)
+#+end_src
+
 * Version Control
 
 ** Magit
@@ -903,12 +918,15 @@ sends mail -- it only indexes and tags -- so the moving parts are:
 
 - *Fetch*  : ~mbsync -a~ pulls IMAP -> =~/Maildir/fastmail/= (config in =~/.mbsyncrc=).
 - *Index*  : ~notmuch new~ indexes the Maildir and applies tags (config in =~/.notmuch-config=).
-- *Send*   : Emacs's built-in ~smtpmail~ over Fastmail's SMTP -- no extra
-  binary, and it reads the same =~/.authinfo.gpg= as everything else.
+- *Send*   : ~msmtp~ -- Emacs's built-in ~smtpmail~ can't speak XOAUTH2, which
+  Yale requires. Fastmail authenticates with the app password from
+  =~/.authinfo.gpg=; Yale (Microsoft 365) with an OAuth2 token from
+  =mutt_oauth2.py=. Emacs selects the account by From (config in =~/.msmtprc=).
 
-Everything is portable to Linux: =~/.mbsyncrc= uses ~$HOME~-relative paths
-and works unchanged; only =~/.notmuch-config='s absolute ~database.path~ and
-the machine-local =~/.authinfo.gpg= differ per machine.
+Everything is portable to Linux: =~/.mbsyncrc= and =~/.msmtprc= use
+~$HOME~-relative paths (only =~/.msmtprc='s ~tls_trust_file~ is OS-specific);
+=~/.notmuch-config='s absolute ~database.path~ and the machine-local
+=~/.authinfo.gpg= differ per machine.
 
 ** Secret handling
 
@@ -920,8 +938,8 @@ uses), on two lines -- same app password for both IMAP and SMTP:
 : machine imap.fastmail.com login hall@absinthe.org password APP-PASSWORD
 : machine smtp.fastmail.com login hall@absinthe.org port 465 password APP-PASSWORD
 
-~mbsync~ reads the IMAP line via its ~PassCmd~; ~smtpmail~ finds the SMTP line
-through ~auth-source~ automatically.
+~mbsync~ reads the IMAP line via its ~PassCmd~; ~msmtp~ reads the SMTP line via
+its ~passwordeval~ (the Fastmail account in =~/.msmtprc=).
 
 ** Configuration
 
@@ -929,12 +947,12 @@ The ~notmuch~ Emacs package is pulled from ELPA (via ~use-package-always-ensure~
 rather than the copy Homebrew/apt ship with the CLI, so the same config loads
 identically on every machine. ~C-c m~ opens the notmuch hello screen.
 
-~notmuch-fcc-dirs~ files a copy of every sent message into the local Sent
-maildir; the next ~mbsync~ then uploads it to Fastmail (Fastmail, unlike
-Gmail, does *not* auto-save SMTP-sent mail server-side, so this Fcc is what
-populates the Sent folder). ~maildir:synchronize_flags~ in =~/.notmuch-config=
-means read/flagged state round-trips: notmuch <-> Maildir flags <-> mbsync <->
-Fastmail.
+~notmuch-fcc-dirs~ files a copy of every sent message into the matching local
+Sent maildir *by From address*, so Yale-sent mail lands in =yale/Sent Items=
+and everything else in =fastmail/Sent=. The next ~mbsync~ uploads it (neither
+Fastmail nor Office 365 auto-saves SMTP-sent mail server-side, so this Fcc is
+what populates Sent). ~maildir:synchronize_flags~ in =~/.notmuch-config= means
+read/flagged state round-trips: notmuch <-> Maildir flags <-> mbsync <-> server.
 
 #+begin_src emacs-lisp
 (use-package notmuch
@@ -964,20 +982,41 @@ Fastmail.
   (setq notmuch-show-indent-messages-width 4
         notmuch-wash-citation-lines-prefix 0
         notmuch-wash-citation-lines-suffix 0)
-  ;; File sent mail into the local Sent maildir; mbsync uploads it to Fastmail.
-  (setq notmuch-fcc-dirs "fastmail/Sent"))
+  ;; File each sent message into the right local Sent maildir by From address;
+  ;; the next mbsync uploads it (neither Fastmail nor Office 365 auto-saves
+  ;; SMTP-sent mail, so this Fcc is what populates Sent).
+  (setq notmuch-fcc-dirs
+        '(("kevin\\.hall@yale\\.edu" . "yale/Sent Items")
+          (".*"                      . "fastmail/Sent"))))
 
-;; Compose/send with notmuch's message-mode; deliver via Fastmail SMTP.
-;; The password comes from ~/.authinfo.gpg via auth-source (smtp.fastmail.com).
-(setq mail-user-agent         'notmuch-user-agent
-      send-mail-function       'smtpmail-send-it
-      message-send-mail-function 'smtpmail-send-it
-      smtpmail-smtp-server     "smtp.fastmail.com"
-      smtpmail-smtp-service    465
-      smtpmail-stream-type     'ssl
-      user-mail-address        "hall@absinthe.org"
-      user-full-name           "E. Kevin Hall"
-      message-kill-buffer-on-exit t)
+;; Compose/send with notmuch's message-mode.  Emacs's built-in `smtpmail'
+;; can't speak XOAUTH2, which Yale (Microsoft 365) requires, so sending is
+;; handed to `msmtp' (see ~/.msmtprc): Fastmail authenticates with the app
+;; password from ~/.authinfo.gpg, Yale with an OAuth2 token from
+;; mutt_oauth2.py.  `my/choose-msmtp-account' picks the msmtp account per
+;; message from the From header, so a reply as Yale goes out via Office 365
+;; and everything else via Fastmail.
+(setq mail-user-agent                'notmuch-user-agent
+      message-send-mail-function     #'message-send-mail-with-sendmail
+      send-mail-function             #'sendmail-send-it
+      sendmail-program               (or (executable-find "msmtp") "msmtp")
+      message-sendmail-f-is-evil     nil
+      message-sendmail-envelope-from 'header
+      user-mail-address              "hall@absinthe.org"
+      user-full-name                 "E. Kevin Hall"
+      message-kill-buffer-on-exit    t)
+
+(defun my/choose-msmtp-account ()
+  "Select the msmtp account (Yale vs Fastmail) from the From header.
+Run from `message-send-mail-hook' (very late, in the outgoing message
+buffer), it sets the buffer-local `-a ACCOUNT' argument that
+`message-send-mail-with-sendmail' passes to msmtp."
+  (when (message-mail-p)
+    (let ((from (or (message-fetch-field "from") "")))
+      (setq-local message-sendmail-extra-arguments
+                  (list "-a" (if (string-match-p "@yale\\.edu" from)
+                                 "yale" "fastmail"))))))
+(add-hook 'message-send-mail-hook #'my/choose-msmtp-account)
 #+end_src
 
 ** Deleting mail (move to Fastmail Trash)
@@ -1262,4 +1301,41 @@ fill the gap between them.  Widening the frame widens the title."
   ;; (see `G' for the normal incremental fetch of new entries).
   (define-key elfeed-search-mode-map (kbd "C-c E") #'my/elfeed-freshrss-clear-read)
   (elfeed-protocol-enable))
+#+end_src
+
+* Web Browsing (eww)
+
+~eww~ renders HTML with ~shr~, no JavaScript. It will never match a real
+browser, but a few ~shr~ defaults make ordinary pages far more readable:
+
+- ~shr-use-colors nil~ -- the biggest win. By default ~shr~ paints each page's
+  *own* colours, which often clash with the theme (washed-out low-contrast
+  text). Off, pages use my theme's faces, so contrast is consistent everywhere
+  ~shr~ renders (eww, HTML mail in notmuch, Elfeed article bodies).
+- ~shr-max-width 90~ (from 120) -- wrap body text to a readable column instead
+  of stretching across the whole frame.
+- ~shr-max-image-proportion 0.6~ (from 0.9) -- keep hero images and publisher
+  logos from dominating the viewport.
+
+Per-page keys still apply: ~R~ (~eww-readable~) re-renders just the extracted
+article, and ~M-I~ (~eww-toggle-images~) hides images for a text-only read.
+~eww-readable-urls~ takes a list of URL regexps to auto-apply the readable view
+on sites I read often -- left empty here to fill in per taste. (JavaScript
+aggregators like news.google.com only expose fallback markup and stay poor;
+for news *feeds*, Elfeed above is the better tool.)
+
+#+begin_src emacs-lisp
+(use-package shr
+  :ensure nil
+  :config
+  (setq shr-use-colors nil
+        shr-max-width 90
+        shr-max-image-proportion 0.6))
+
+(use-package eww
+  :ensure nil
+  :config
+  ;; Add URL regexps here to auto-apply `eww-readable' on sites read often,
+  ;; e.g. '("nytimes\\.com/" "apnews\\.com/").
+  (setq eww-readable-urls nil))
 #+end_src

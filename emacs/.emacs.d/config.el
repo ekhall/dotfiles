@@ -384,6 +384,10 @@ line the way plain `TAB' / `org-cycle' require."
          ("C-M-$" . jinx-languages)))
 ;; Spell Checking:1 ends here
 
+;; [[file:config.org::*Turn off ispell word-completion in text buffers][Turn off ispell word-completion in text buffers:1]]
+(setq text-mode-ispell-word-completion nil)
+;; Turn off ispell word-completion in text buffers:1 ends here
+
 ;; [[file:config.org::*Magit][Magit:1]]
 (use-package magit
   :bind
@@ -438,20 +442,41 @@ line the way plain `TAB' / `org-cycle' require."
   (setq notmuch-show-indent-messages-width 4
         notmuch-wash-citation-lines-prefix 0
         notmuch-wash-citation-lines-suffix 0)
-  ;; File sent mail into the local Sent maildir; mbsync uploads it to Fastmail.
-  (setq notmuch-fcc-dirs "fastmail/Sent"))
+  ;; File each sent message into the right local Sent maildir by From address;
+  ;; the next mbsync uploads it (neither Fastmail nor Office 365 auto-saves
+  ;; SMTP-sent mail, so this Fcc is what populates Sent).
+  (setq notmuch-fcc-dirs
+        '(("kevin\\.hall@yale\\.edu" . "yale/Sent Items")
+          (".*"                      . "fastmail/Sent"))))
 
-;; Compose/send with notmuch's message-mode; deliver via Fastmail SMTP.
-;; The password comes from ~/.authinfo.gpg via auth-source (smtp.fastmail.com).
-(setq mail-user-agent         'notmuch-user-agent
-      send-mail-function       'smtpmail-send-it
-      message-send-mail-function 'smtpmail-send-it
-      smtpmail-smtp-server     "smtp.fastmail.com"
-      smtpmail-smtp-service    465
-      smtpmail-stream-type     'ssl
-      user-mail-address        "hall@absinthe.org"
-      user-full-name           "E. Kevin Hall"
-      message-kill-buffer-on-exit t)
+;; Compose/send with notmuch's message-mode.  Emacs's built-in `smtpmail'
+;; can't speak XOAUTH2, which Yale (Microsoft 365) requires, so sending is
+;; handed to `msmtp' (see ~/.msmtprc): Fastmail authenticates with the app
+;; password from ~/.authinfo.gpg, Yale with an OAuth2 token from
+;; mutt_oauth2.py.  `my/choose-msmtp-account' picks the msmtp account per
+;; message from the From header, so a reply as Yale goes out via Office 365
+;; and everything else via Fastmail.
+(setq mail-user-agent                'notmuch-user-agent
+      message-send-mail-function     #'message-send-mail-with-sendmail
+      send-mail-function             #'sendmail-send-it
+      sendmail-program               (or (executable-find "msmtp") "msmtp")
+      message-sendmail-f-is-evil     nil
+      message-sendmail-envelope-from 'header
+      user-mail-address              "hall@absinthe.org"
+      user-full-name                 "E. Kevin Hall"
+      message-kill-buffer-on-exit    t)
+
+(defun my/choose-msmtp-account ()
+  "Select the msmtp account (Yale vs Fastmail) from the From header.
+Run from `message-send-mail-hook' (very late, in the outgoing message
+buffer), it sets the buffer-local `-a ACCOUNT' argument that
+`message-send-mail-with-sendmail' passes to msmtp."
+  (when (message-mail-p)
+    (let ((from (or (message-fetch-field "from") "")))
+      (setq-local message-sendmail-extra-arguments
+                  (list "-a" (if (string-match-p "@yale\\.edu" from)
+                                 "yale" "fastmail"))))))
+(add-hook 'message-send-mail-hook #'my/choose-msmtp-account)
 ;; Configuration:1 ends here
 
 ;; [[file:config.org::*Deleting mail (move to Fastmail Trash)][Deleting mail (move to Fastmail Trash):1]]
@@ -639,3 +664,19 @@ fill the gap between them.  Widening the frame widens the title."
   (define-key elfeed-search-mode-map (kbd "C-c E") #'my/elfeed-freshrss-clear-read)
   (elfeed-protocol-enable))
 ;; Configuration:1 ends here
+
+;; [[file:config.org::*Web Browsing (eww)][Web Browsing (eww):1]]
+(use-package shr
+  :ensure nil
+  :config
+  (setq shr-use-colors nil
+        shr-max-width 90
+        shr-max-image-proportion 0.6))
+
+(use-package eww
+  :ensure nil
+  :config
+  ;; Add URL regexps here to auto-apply `eww-readable' on sites read often,
+  ;; e.g. '("nytimes\\.com/" "apnews\\.com/").
+  (setq eww-readable-urls nil))
+;; Web Browsing (eww):1 ends here
