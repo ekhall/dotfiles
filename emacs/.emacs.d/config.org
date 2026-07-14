@@ -919,6 +919,14 @@ Fastmail.
           (:name "sent"     :query "tag:sent"                   :key "s" :sort-order newest-first)
           (:name "drafts"   :query "tag:draft"                  :key "d" :sort-order newest-first)
           (:name "all"      :query "*"                          :key "a" :sort-order newest-first)))
+  ;; Thread-view readability (see the reply-tree note above): step each reply
+  ;; 4 columns right of its parent so tree depth is obvious, and fully fold
+  ;; `>'-style quoted citations to a clickable button (prefix/suffix 0) so a
+  ;; reply's new text isn't buried under its quoted copy.  NB Outlook-style
+  ;; header quoting has no `>' prefix, so it is not caught by this.
+  (setq notmuch-show-indent-messages-width 4
+        notmuch-wash-citation-lines-prefix 0
+        notmuch-wash-citation-lines-suffix 0)
   ;; File sent mail into the local Sent maildir; mbsync uploads it to Fastmail.
   (setq notmuch-fcc-dirs "fastmail/Sent"))
 
