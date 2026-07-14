@@ -8,36 +8,49 @@ This is a ~COMMENT~ heading: visible while browsing the file in Emacs,
 but excluded from both tangling and export (~COMMENT~ only excludes
 this one subtree, which holds no source blocks, so the code below
 tangles unaffected). Unlike the old ~#+BEGIN_COMMENT~ block, the table
-here is a *live* Org table -- realign it any time with ~TAB~ or ~C-c
-C-c~. Update it whenever a keybinding below changes.
+here is a single *live* Org table -- the leftmost /Section/ column groups
+the bindings while keeping every row in one aligned grid (separate tables
+size their columns independently, so they never line up). Realign with
+~TAB~ or ~C-c C-c~; update whenever a keybinding changes.
 
-| Key             | Command                       | Notes                                          |
-|-----------------+-------------------------------+------------------------------------------------|
-| C-c r           | my/reload-config              | re-tangles + reloads config.org                |
-| C-c t           | my/toggle-theme               | toggle doom-tomorrow-night / -day              |
-| C-c w           | prose-mode                    | toggle distraction-free prose writing          |
-| C-c f           | my/org-fold-current-subtree   | fold section from its body (Org only)          |
-| C-x b           | consult-buffer                | enhanced switch-to-buffer                      |
-| M-g g           | consult-goto-line             | enhanced goto-line                             |
-| M-g i           | consult-imenu                 | enhanced imenu                                 |
-| M-s l           | consult-line                  | search current buffer                          |
-| M-s r           | consult-ripgrep               | grep project (needs ripgrep)                   |
-| C-.             | embark-act                    | contextual actions at point/candidate          |
-| C-,             | embark-dwim                   | default Embark action                          |
-| C-h B           | embark-bindings               | list bindings via Embark                       |
-| M-A             | marginalia-cycle              | cycle annotation style (in minibuffer)         |
-| C-;             | avy-goto-char-timer           | jump to chars, type until I pause            |
-| C-:             | avy-goto-char-2               | jump to an exact 2-char match                  |
-| M-g w           | avy-goto-word-1               | jump to a word                                 |
-| M-g l           | avy-goto-line                 | jump to a line                                 |
-| Caps Lock, tap  | god-mode-all                  | toggle God mode (via keyd; see Modal Editing)  |
-| Caps Lock, hold | Control                       | via keyd overload, works system-wide           |
-| C-x g           | magit-status                  | open Magit                                     |
-| C-x u           | vundo                         | visual undo tree (replaces linear undo)        |
-| C-c e           | elfeed                        | open Elfeed (FreshRSS-synced reader)           |
-| C-c E           | my/elfeed-freshrss-clear-read | reconcile read-state from FreshRSS (in Elfeed) |
-| M-$             | jinx-correct                  | correct spelling at point (replaces ispell)    |
-| C-M-$           | jinx-languages                | switch Jinx dictionaries                        |
+| Section              | Key             | Command                       | Notes                                          |
+|----------------------+-----------------+-------------------------------+------------------------------------------------|
+| Config & session     | C-c r           | my/reload-config              | re-tangles + reloads config.org                |
+|                      | C-c t           | my/toggle-theme               | toggle doom-tomorrow-night / -day              |
+|----------------------+-----------------+-------------------------------+------------------------------------------------|
+| Motion & search      | C-x b           | consult-buffer                | enhanced switch-to-buffer                      |
+|                      | M-g g           | consult-goto-line             | enhanced goto-line                             |
+|                      | M-g i           | consult-imenu                 | enhanced imenu                                 |
+|                      | M-g w           | avy-goto-word-1               | jump to a word                                 |
+|                      | M-g l           | avy-goto-line                 | jump to a line                                 |
+|                      | C-;             | avy-goto-char-timer           | jump to chars, type until I pause              |
+|                      | C-:             | avy-goto-char-2               | jump to an exact 2-char match                  |
+|                      | M-s l           | consult-line                  | search current buffer                          |
+|                      | M-s r           | consult-ripgrep               | grep project (needs ripgrep)                   |
+|----------------------+-----------------+-------------------------------+------------------------------------------------|
+| Actions & minibuffer | C-.             | embark-act                    | contextual actions at point/candidate          |
+|                      | C-,             | embark-dwim                   | default Embark action                          |
+|                      | C-h B           | embark-bindings               | list bindings via Embark                       |
+|                      | M-A             | marginalia-cycle              | cycle annotation style (in minibuffer)         |
+|----------------------+-----------------+-------------------------------+------------------------------------------------|
+| Editing              | C-x u           | vundo                         | visual undo tree (replaces linear undo)        |
+|                      | Caps Lock, tap  | god-mode-all                  | toggle God mode (via keyd; see Modal Editing)  |
+|                      | Caps Lock, hold | Control                       | via keyd overload, works system-wide           |
+|----------------------+-----------------+-------------------------------+------------------------------------------------|
+| VC & projects        | C-x g           | magit-status                  | open Magit                                     |
+|                      | C-c p p         | project-switch-project        | switch project (opens Magit)                   |
+|                      | C-c p f         | project-find-file             | find file in the current project               |
+|                      | C-c p b         | project-switch-to-buffer      | switch to a project buffer                     |
+|                      | C-c p g         | project-find-regexp           | grep the project (regexp)                      |
+|                      | C-c p d         | project-dired                 | dired at the project root                      |
+|----------------------+-----------------+-------------------------------+------------------------------------------------|
+| Prose & spelling     | C-c w           | prose-mode                    | toggle distraction-free prose writing          |
+|                      | C-c f           | my/org-fold-current-subtree   | fold section from its body (Org only)          |
+|                      | M-$             | jinx-correct                  | correct spelling at point (replaces ispell)    |
+|                      | C-M-$           | jinx-languages                | switch Jinx dictionaries                       |
+|----------------------+-----------------+-------------------------------+------------------------------------------------|
+| Feeds (Elfeed)       | C-c e           | elfeed                        | open Elfeed (FreshRSS-synced reader)           |
+|                      | C-c E           | my/elfeed-freshrss-clear-read | reconcile read-state from FreshRSS (in Elfeed) |
 
 * Introduction
 
@@ -815,6 +828,30 @@ single buffer covering staging, committing, branching, and history.
 (use-package magit
   :bind
   ("C-x g" . magit-status))
+#+end_src
+
+** Projects (project.el)
+
+Emacs's built-in project layer -- find-file, grep, and buffer-switching all
+scoped to a project (usually a VCS root, detected by its ~.git~ etc.). I don't
+use Projectile; ~project.el~ covers the same ground with nothing extra to
+install. ~C-c p~ is bound as a Projectile-style prefix (the built-in ~C-x p~
+still works too), and switching to a project drops straight into Magit -- like
+Projectile's ~switch-project-action~. The other project keys work from there:
+~C-c p f~ find file, ~C-c p g~ grep, ~C-c p b~ switch buffer, ~C-c p d~ dired.
+
+~magit-project-status~ is autoloaded, so referencing it here pulls Magit in on
+demand; ~:ensure nil~ stops ~use-package-always-ensure~ from trying to fetch the
+built-in ~project~ from ELPA.
+
+#+begin_src emacs-lisp
+(use-package project
+  :ensure nil
+  :bind-keymap ("C-c p" . project-prefix-map)
+  :config
+  ;; Switching to a project opens Magit for it, rather than the default
+  ;; dispatch menu; individual C-c p keys still cover find-file/grep/dired.
+  (setq project-switch-commands #'magit-project-status))
 #+end_src
 
 * Encrypted Files (EasyPG)

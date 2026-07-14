@@ -390,6 +390,16 @@ line the way plain `TAB' / `org-cycle' require."
   ("C-x g" . magit-status))
 ;; Magit:1 ends here
 
+;; [[file:config.org::*Projects (project.el)][Projects (project.el):1]]
+(use-package project
+  :ensure nil
+  :bind-keymap ("C-c p" . project-prefix-map)
+  :config
+  ;; Switching to a project opens Magit for it, rather than the default
+  ;; dispatch menu; individual C-c p keys still cover find-file/grep/dired.
+  (setq project-switch-commands #'magit-project-status))
+;; Projects (project.el):1 ends here
+
 ;; [[file:config.org::*Encrypted Files (EasyPG)][Encrypted Files (EasyPG):1]]
 (setq epa-file-encrypt-to '("hall@absinthe.org")
       epa-file-select-keys nil)
