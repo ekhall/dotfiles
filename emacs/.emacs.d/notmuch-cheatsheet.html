@@ -162,11 +162,11 @@
       <div class="h">Compose &amp; send</div>
       <div class="rows">
         <div class="row"><div class="k"><kbd>m</kbd></div><div class="d">new message (from hello / search)</div></div>
-        <div class="row"><div class="k"><kbd>C-c C-c</kbd></div><div class="d">send (via Fastmail SMTP)</div></div>
+        <div class="row"><div class="k"><kbd>C-c C-c</kbd></div><div class="d">send (Fastmail or Yale, by From)</div></div>
         <div class="row"><div class="k"><kbd>C-c C-k</kbd></div><div class="d">cancel / kill the draft</div></div>
       </div>
-      <div class="note">Sent mail is filed to the local <code>Sent</code> folder; the next <kbd>G</kbd> uploads it to Fastmail.</div>
-      <div class="callout"><b>Yale sending not set up yet</b> — all mail currently goes out via Fastmail SMTP. Don't send <i>as</i> <code>kevin.hall@yale.edu</code> until XOAUTH2 sending is wired up.</div>
+      <div class="note">Sent mail is filed to the local Sent maildir by account (<code>fastmail/Sent</code> or <code>yale/Sent&nbsp;Items</code>); the next <kbd>G</kbd> uploads it.</div>
+      <div class="note"><b>Two identities:</b> msmtp picks the account from your <b>From</b> header — replies as <code>kevin.hall@yale.edu</code> go via Office&nbsp;365 (XOAUTH2), everything else via Fastmail.</div>
     </section>
 
     <section>

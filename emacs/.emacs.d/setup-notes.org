@@ -17,12 +17,12 @@ throughout and summarised in [[*Files at a glance (what's where)]].
 notmuch does not fetch or send mail — it only indexes and tags a local
 Maildir. The stack:
 
-| Job                    | Tool                      | Config file                         |
-|------------------------+---------------------------+-------------------------------------|
-| Fetch IMAP -> Maildir  | ~mbsync~ (isync)          | =~/.mbsyncrc=                       |
-| Index + tag            | ~notmuch~                 | =~/.notmuch-config= + Maildir hooks |
-| Send                   | Emacs built-in ~smtpmail~ | in =config.org= (portable)         |
-| Secrets                | ~gpg~ + =~/.authinfo.gpg= | machine-local                       |
+| Job                   | Tool                       | Config file                         |
+|-----------------------+----------------------------+-------------------------------------|
+| Fetch IMAP -> Maildir | ~mbsync~ (isync)           | =~/.mbsyncrc=                       |
+| Index + tag           | ~notmuch~                  | =~/.notmuch-config= + Maildir hooks |
+| Send                  | ~msmtp~ (XOAUTH2 for Yale) | =~/.msmtprc= (+ config.org routing) |
+| Secrets               | ~gpg~ + =~/.authinfo.gpg=  | machine-local                       |
 
 Mail is stored at =~/Maildir/fastmail/=. The notmuch database indexes the
 whole of =~/Maildir/= (so more accounts can be added later as siblings).
@@ -175,7 +175,7 @@ machine smtp.fastmail.com login hall@absinthe.org port 465 password YOUR-APP-PAS
 #+end_src
 
 - ~mbsync~ reads the IMAP line via its =PassCmd= (an inline gpg+awk pipeline).
-- ~smtpmail~ finds the SMTP line automatically through ~auth-source~.
+- ~msmtp~ reads the SMTP line via its =passwordeval= (the Fastmail account).
 
 Sanity check the extraction (does not reveal the secret):
 
@@ -378,12 +378,13 @@ it with headless Chrome:
   =fastmail/Trash=). Deleting a *Yale* message only tags it =deleted= and
   hides it locally — it stays in the Outlook Inbox on the server. A Yale
   delete-move into Outlook's "Deleted Items" (via a push channel) is not built.
-- *Send*: =smtpmail= delivers over =smtp.fastmail.com:465= (SSL), auth from
-  =~/.authinfo.gpg=. A copy is Fcc'd to the local =fastmail/Sent= maildir and
-  the next sync uploads it to Fastmail (Fastmail does not auto-save
-  SMTP-sent mail server-side).
+- *Send*: =msmtp= submits the mail (=~/.msmtprc=); Emacs picks the account
+  from the From header. Fastmail uses =smtp.fastmail.com:465= (app password);
+  Yale uses =smtp.office365.com:587= XOAUTH2 (OAuth token). A copy is Fcc'd to
+  the matching local Sent maildir (=fastmail/Sent= or =yale/Sent Items=) and
+  the next sync uploads it (neither server auto-saves SMTP-sent mail).
 - *Read/flag state* round-trips: notmuch tags <-> Maildir flags <-> mbsync
-  <-> Fastmail (=synchronize_flags=true=).
+  <-> server (=synchronize_flags=true=).
 
 * Second account: Yale (Microsoft 365 via OAuth2)
 
@@ -558,12 +559,29 @@ no-op on Linux (where the plugin is in the system SASL dir):
 
 : [ "$(uname)" = "Darwin" ] && export SASL_PATH="$HOME/.local/lib/sasl2"
 
-** Still TODO: sending as Yale
+** Sending as Yale (msmtp + XOAUTH2)
 
-Reading works; *sending as Yale is not wired up yet.* It needs =smtpmail=
-XOAUTH2 to =smtp.office365.com:587= with per-account From routing (Fastmail =
-password, Yale = OAuth token) — until then, replies go out via Fastmail's
-SMTP, which is wrong for Yale mail. Do not send *as* Yale until configured.
+Sending *is* wired up now. Emacs's built-in =smtpmail= can't speak XOAUTH2,
+so delivery is handed to =msmtp= (=brew install msmtp=; config =~/.msmtprc=,
+=chmod 600=, machine-local, holds no secrets — it uses =passwordeval=). Two
+accounts:
+
+- *fastmail* — =smtp.fastmail.com:465=, app password pulled from
+  =~/.authinfo.gpg= (same gpg+awk pipeline as mbsync; use a regex field match
+  =$i ~ /^password$/= to avoid the double-quote escaping msmtp mangles).
+- *yale* — =smtp.office365.com:587= STARTTLS, =auth xoauth2=, token from
+  =mutt_oauth2.py ~/.mutt_oauth2_yale.token= (the same token as IMAP).
+
+=config.org= routes message-mode through =message-send-mail-with-sendmail= ->
+=msmtp=, and =my/choose-msmtp-account= (on =message-send-mail-hook=) picks
+=-a yale= vs =-a fastmail= from the From header. =notmuch-fcc-dirs= is now an
+alist that files Yale-sent mail in =yale/Sent Items= and the rest in
+=fastmail/Sent=.
+
+Verify without sending: =msmtp --serverinfo -a yale= (expect =XOAUTH2= under
+AUTH) and =-a fastmail=. Then send a real test to yourself from each identity.
+GnuTLS-backed msmtp needs a CA bundle: =tls_trust_file /etc/ssl/cert.pem= on
+macOS.
 
 ** Security note
 
@@ -629,16 +647,17 @@ important for =mail= so Stow symlinks only the individual hook files and
 never turns =~/Maildir= (your mail data) into a symlink. Then recreate the
 machine-local files below (they're deliberately NOT in the public repo).
 
-| File                                   | In dotfiles?       | Per-machine action                  |
-|----------------------------------------+--------------------+-------------------------------------|
-| =config.org= / =config.el=             | yes (stow =emacs=) | none (portable)                     |
-| =setup-notes.org= (this file)          | yes (stow =emacs=) | none                                |
-| =~/.mbsyncrc=                          | yes (stow =mail=)  | none (portable)                     |
-| =~/.local/bin/mutt_oauth2.py=          | yes (stow =mail=)  | none (tenant + client_id already set) |
-| =~/Maildir/.notmuch/hooks/pre-new=     | yes (stow =mail=)  | none (SASL_PATH is OS-guarded)      |
-| =~/Maildir/.notmuch/hooks/post-new=    | yes (stow =mail=)  | folder names if account differs     |
-| =~/.notmuch-config=                    | *no* (local)       | recreate; =database.path= per OS    |
-| =~/.authinfo.gpg=                      | *no* (secret)      | own encrypted secret                |
-| =~/.mutt_oauth2_yale.token=            | *no* (secret)      | own encrypted OAuth token           |
-| =~/.local/lib/sasl2/libxoauth2.so=     | *no* (binary)      | rebuild per OS; Linux -> system dir |
-| =~/.gnupg/gpg-agent.conf= (macOS)      | *no* (local)       | =allow-loopback-pinentry= + =pinentry-program= (pinentry-mac) |
+| File                                | In dotfiles?       | Per-machine action                                            |
+|-------------------------------------+--------------------+---------------------------------------------------------------|
+| =config.org= / =config.el=          | yes (stow =emacs=) | none (portable)                                               |
+| =setup-notes.org= (this file)       | yes (stow =emacs=) | none                                                          |
+| =~/.mbsyncrc=                       | yes (stow =mail=)  | none (portable)                                               |
+| =~/.local/bin/mutt_oauth2.py=       | yes (stow =mail=)  | none (tenant + client_id already set)                         |
+| =~/Maildir/.notmuch/hooks/pre-new=  | yes (stow =mail=)  | none (SASL_PATH is OS-guarded)                                |
+| =~/Maildir/.notmuch/hooks/post-new= | yes (stow =mail=)  | folder names if account differs                               |
+| =~/.notmuch-config=                 | *no* (local)       | recreate; =database.path= per OS                              |
+| =~/.msmtprc=                        | *no* (local)       | recreate; =chmod 600=; no secrets                             |
+| =~/.authinfo.gpg=                   | *no* (secret)      | own encrypted secret                                          |
+| =~/.mutt_oauth2_yale.token=         | *no* (secret)      | own encrypted OAuth token                                     |
+| =~/.local/lib/sasl2/libxoauth2.so=  | *no* (binary)      | rebuild per OS; Linux -> system dir                           |
+| =~/.gnupg/gpg-agent.conf= (macOS)   | *no* (local)       | =allow-loopback-pinentry= + =pinentry-program= (pinentry-mac) |
