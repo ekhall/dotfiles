@@ -1,0 +1,33 @@
+#!/bin/sh
+# pre-new: (1) flush deletions to Fastmail Trash, then (2) fetch mail.
+# Runs before `notmuch new` indexing -- i.e. on Emacs `G`, on the 5-minute
+# poll timer, and on any manual `notmuch new`.
+#
+# Machine-local (not in dotfiles). Replicate on each Linux box.
+
+# Yale (Office 365) authenticates with XOAUTH2. On macOS the XOAUTH2 SASL
+# plugin lives in a user-owned dir (Apple's libsasl2 honours SASL_PATH); on
+# Linux it's installed in the system SASL dir, so SASL_PATH must NOT be set
+# there. Guard by OS so this hook is portable (it's stowed to dotfiles).
+[ "$(uname)" = "Darwin" ] && export SASL_PATH="$HOME/.local/lib/sasl2"
+
+TRASH_DIR="$HOME/Maildir/fastmail/Trash/cur"
+mkdir -p "$TRASH_DIR"
+
+# (1) Move every message tagged `deleted` that is not already in Trash into
+#     the Trash maildir. mbsync (step 2) then removes it from its old Fastmail
+#     folder and uploads it to Fastmail Trash -- recoverable there until
+#     Fastmail auto-purges (~30 days). isync stores its UID in the filename as
+#     ",U=<n>"; strip it so the moved file is treated as a NEW Trash message.
+notmuch search --output=files 'tag:deleted and not path:fastmail/Trash/**' 2>/dev/null \
+| while IFS= read -r src; do
+    [ -f "$src" ] || continue
+    base=$(basename "$src")
+    dst=$(printf '%s' "$base" | sed -E 's/,U=[0-9]+//')
+    mv -n "$src" "$TRASH_DIR/$dst"
+  done
+
+# (2) Fetch + push. Propagates the moves above (and any flag changes) to
+#     Fastmail, and pulls new mail. `|| true` so an offline sync never blocks
+#     indexing of mail already on disk.
+mbsync -a || true

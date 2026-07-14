@@ -2,3 +2,12 @@
 /emacs/.emacs.d/\#config.org\#
 /emacs/.emacs.d/recentf
 /emacs/.emacs.d/elfeed
+
+# --- mail: never commit secrets or machine-specific artifacts (PUBLIC repo) ---
+**/*.gpg
+**/*.token
+**/.authinfo*
+**/.mutt_oauth2_*
+**/.notmuch-config
+mail/.local/lib/
+**/sasl2/

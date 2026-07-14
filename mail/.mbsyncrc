@@ -1,0 +1,71 @@
+# ~/.mbsyncrc — Fastmail <-> local Maildir sync for notmuch
+#
+# Machine-local (NOT tracked in dotfiles): paths are under $HOME so this
+# same file works on Linux unchanged. The app password is never stored
+# here — PassCmd decrypts it out of ~/.authinfo.gpg at run time, keyed on
+# the "machine imap.fastmail.com" line.
+#
+# Usage:  mbsync -a        (sync all channels)
+#         mbsync fastmail  (sync just this account)
+
+IMAPAccount fastmail
+Host imap.fastmail.com
+Port 993
+User hall@absinthe.org
+# Pull the password field from the imap.fastmail.com line in .authinfo.gpg.
+PassCmd "gpg -q --for-your-eyes-only --no-tty -d ~/.authinfo.gpg | awk '/machine imap.fastmail.com/{for(i=1;i<=NF;i++) if($i==\"password\") print $(i+1)}'"
+TLSType IMAPS
+AuthMechs LOGIN
+# If TLS verification fails on macOS Homebrew, uncomment the matching path:
+# CertificateFile /opt/homebrew/etc/openssl@3/cert.pem   # macOS (Apple Silicon)
+# CertificateFile /etc/ssl/certs/ca-certificates.crt     # Linux
+
+IMAPStore fastmail-remote
+Account fastmail
+
+MaildirStore fastmail-local
+Subfolders Verbatim
+Path ~/Maildir/fastmail/
+Inbox ~/Maildir/fastmail/Inbox
+
+Channel fastmail
+Far :fastmail-remote:
+Near :fastmail-local:
+Patterns *
+# Build the local mirror; propagate new mail and deletions both ways so
+# notmuch/Emacs actions (and locally-Fcc'd Sent mail) push back to Fastmail.
+Create Near
+Expunge Both
+SyncState *
+# Preserve each message's original server-arrival date on the local copy.
+CopyArrivalDate yes
+
+# ── Yale (Microsoft 365) — OAuth2/XOAUTH2 via the system SASL plugin ──
+# The token comes from mutt_oauth2.py (Yale-tenant token, encrypted store).
+# XOAUTH2 is provided by macOS /usr/lib/sasl2/oauthbearer.so — no build needed.
+IMAPAccount yale
+Host outlook.office365.com
+Port 993
+User kevin.hall@yale.edu
+PassCmd "mutt_oauth2.py ~/.mutt_oauth2_yale.token"
+TLSType IMAPS
+AuthMechs XOAUTH2
+
+IMAPStore yale-remote
+Account yale
+
+MaildirStore yale-local
+Subfolders Verbatim
+Path ~/Maildir/yale/
+Inbox ~/Maildir/yale/Inbox
+
+Channel yale
+Far :yale-remote:
+Near :yale-local:
+# Mail folders only. Excludes: the huge Archive* folders (60k+, kept server-side),
+# Outlook non-mail folders (Calendar/Contacts/Journal/Outbox), and system cruft.
+Patterns "*" "!Archive*" "!Calendar" "!Contacts" "!Journal" "!Outbox" "!Conversation History" "!Conversation History/*" "!Sync Issues" "!Sync Issues/*"
+Create Near
+Expunge Both
+SyncState *
+CopyArrivalDate yes

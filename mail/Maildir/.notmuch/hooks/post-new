@@ -1,0 +1,36 @@
+#!/bin/sh
+# post-new: map Fastmail folder location -> notmuch tags, then clear "new".
+#
+# Runs automatically after every `notmuch new`. Folder names are the exact
+# Fastmail folders (mbsync syncs them Verbatim). We use `path:.../**` rather
+# than `folder:` because folder: does NOT match names containing spaces
+# (e.g. "Junk Mail" -> 0 hits), whereas path: works for all of them.
+#
+# NOTE: this file lives inside ~/Maildir/.notmuch/hooks/ which is machine-
+# local (the Maildir is not in the dotfiles repo). Replicate it on each
+# Linux box (or store it in dotfiles and symlink it here).
+
+set -e
+
+# ── Account tags: distinguish the two accounts by their maildir subtree ──
+notmuch tag +fastmail -- 'tag:new and path:fastmail/**'
+notmuch tag +yale     -- 'tag:new and path:yale/**'
+
+# ── Fastmail folder -> tag ──
+notmuch tag +inbox          -- 'tag:new and path:fastmail/Inbox/**'
+notmuch tag +archive        -- 'tag:new and path:fastmail/Archive/**'
+notmuch tag +draft          -- 'tag:new and path:fastmail/Drafts/**'
+# This account has three legacy Sent folders (Fastmail / Outlook / Apple Mail).
+notmuch tag +sent -unread   -- 'tag:new and (path:fastmail/Sent/** or path:"fastmail/Sent Items/**" or path:"fastmail/Sent Messages/**")'
+notmuch tag +spam    -inbox -- 'tag:new and path:"fastmail/Junk Mail/**"'
+notmuch tag +deleted -inbox -- 'tag:new and path:fastmail/Trash/**'
+
+# ── Yale (Outlook) folder -> tag ──  (Outlook names: "Sent Items", "Deleted Items", "Junk Email")
+notmuch tag +inbox          -- 'tag:new and path:yale/Inbox/**'
+notmuch tag +draft          -- 'tag:new and path:yale/Drafts/**'
+notmuch tag +sent -unread   -- 'tag:new and (path:"yale/Sent Items/**" or path:yale/Sent/**)'
+notmuch tag +spam    -inbox -- 'tag:new and (path:"yale/Junk Email/**" or path:yale/Junk/**)'
+notmuch tag +deleted -inbox -- 'tag:new and path:"yale/Deleted Items/**"'
+
+# Remaining custom folders keep only their account tag. Clear "new" from all.
+notmuch tag -new -- tag:new
