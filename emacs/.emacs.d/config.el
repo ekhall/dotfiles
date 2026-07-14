@@ -680,3 +680,26 @@ fill the gap between them.  Widening the frame widens the title."
   ;; e.g. '("nytimes\\.com/" "apnews\\.com/").
   (setq eww-readable-urls nil))
 ;; Web Browsing (eww):1 ends here
+
+;; [[file:config.org::*Nicer rendering, readable Org, and a real browser][Nicer rendering, readable Org, and a real browser:1]]
+(use-package shrface
+  :after shr
+  :config
+  (shrface-basic)
+  (shrface-trial)
+  (setq shrface-href-versatile t)
+  (add-hook 'eww-after-render-hook #'shrface-mode))
+
+(use-package org-web-tools
+  :commands (org-web-tools-read-url-as-org org-web-tools-insert-link-for-url))
+
+;; A real WebKit view for pages eww can't handle (needs --with-xwidgets).
+(defun my/eww-open-in-xwidget ()
+  "Reopen the current eww page in an embedded WebKit (xwidget) view."
+  (interactive)
+  (let ((url (eww-current-url)))
+    (unless url (user-error "No current eww URL"))
+    (xwidget-webkit-browse-url url)))
+(with-eval-after-load 'eww
+  (define-key eww-mode-map (kbd "W") #'my/eww-open-in-xwidget))
+;; Nicer rendering, readable Org, and a real browser:1 ends here

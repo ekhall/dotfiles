@@ -51,6 +51,10 @@ size their columns independently, so they never line up). Realign with
 |----------------------+-----------------+-------------------------------+------------------------------------------------|
 | Feeds (Elfeed)       | C-c e           | elfeed                        | open Elfeed (FreshRSS-synced reader)           |
 |                      | C-c E           | my/elfeed-freshrss-clear-read | reconcile read-state from FreshRSS (in Elfeed) |
+|----------------------+-----------------+-------------------------------+------------------------------------------------|
+| Web (eww)            | R               | eww-readable                  | show just the extracted article                |
+|                      | M-I             | eww-toggle-images             | toggle images on / off                         |
+|                      | W               | my/eww-open-in-xwidget        | reopen page in WebKit (xwidget)                |
 
 * Introduction
 
@@ -1338,4 +1342,47 @@ for news *feeds*, Elfeed above is the better tool.)
   ;; Add URL regexps here to auto-apply `eww-readable' on sites read often,
   ;; e.g. '("nytimes\\.com/" "apnews\\.com/").
   (setq eww-readable-urls nil))
+#+end_src
+
+** Nicer rendering, readable Org, and a real browser
+
+Three upgrades layered on top of eww:
+
+- *shrface* re-skins ~shr~'s output with Org-like headings, real paragraph
+  typography, bullet lists, and ~TAB~ folding + ~imenu~ navigation -- a big
+  visual jump for eww, Elfeed article bodies, and HTML mail (anything ~shr~
+  renders). ~shrface-basic~ installs its handlers into
+  ~shr-external-rendering-functions~; ~shrface-mode~ (added to
+  ~eww-after-render-hook~) adds the outline/navigation.
+- *org-web-tools* fetches a URL, runs readability, and converts the article
+  into a clean *Org buffer* (headings, links, no chrome) -- the best
+  distraction-free read of a content-in-HTML page. ~M-x
+  org-web-tools-read-url-as-org~. Needs =pandoc= for the HTML->Org conversion.
+- *xwidget-webkit* is a real embedded WebKit engine (this build is
+  ~--with-xwidgets~) for the JavaScript-heavy pages ~eww~ can't render at all.
+  In eww, ~W~ reopens the current page in WebKit; ~M-x
+  xwidget-webkit-browse-url~ opens any URL directly. (Paywalls/logins still
+  apply -- it behaves like a browser.)
+
+#+begin_src emacs-lisp
+(use-package shrface
+  :after shr
+  :config
+  (shrface-basic)
+  (shrface-trial)
+  (setq shrface-href-versatile t)
+  (add-hook 'eww-after-render-hook #'shrface-mode))
+
+(use-package org-web-tools
+  :commands (org-web-tools-read-url-as-org org-web-tools-insert-link-for-url))
+
+;; A real WebKit view for pages eww can't handle (needs --with-xwidgets).
+(defun my/eww-open-in-xwidget ()
+  "Reopen the current eww page in an embedded WebKit (xwidget) view."
+  (interactive)
+  (let ((url (eww-current-url)))
+    (unless url (user-error "No current eww URL"))
+    (xwidget-webkit-browse-url url)))
+(with-eval-after-load 'eww
+  (define-key eww-mode-map (kbd "W") #'my/eww-open-in-xwidget))
 #+end_src
