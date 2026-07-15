@@ -730,8 +730,37 @@ fill the gap between them.  Widening the frame widens the title."
 ;; Org & Agenda:1 ends here
 
 ;; [[file:config.org::*External calendars (read-only: Outlook + iCloud)][External calendars (read-only: Outlook + iCloud):1]]
-;; Calendar mirrors are generated into ~/org/calendars/ by the launchd job;
-;; nothing to configure in Emacs beyond having them on `org-agenda-files'
-;; (set above).  `M-x org-revert-all-org-buffers' or reopening the agenda
-;; picks up a fresh sync.
+(defvar my/calendar-sync-script "~/.config/vdirsyncer/sync-calendars.sh"
+  "Script that syncs external calendars and regenerates ~/org/calendars/*.org.")
+
+(defun my/calendar-sync ()
+  "Refresh the external-calendar mirrors in the background, then rebuild an
+open agenda so new events appear.  The sync script runs detached, so Emacs
+never blocks on the network."
+  (interactive)
+  (let ((script (expand-file-name my/calendar-sync-script)))
+    (when (file-exists-p script)
+      (make-process
+       :name "calendar-sync" :buffer nil :noquery t
+       :command (list script)
+       :sentinel
+       (lambda (_proc event)
+         (when (string-prefix-p "finished" event)
+           ;; Revert any (unmodified) calendar buffers, then redo an open agenda.
+           (dolist (b (buffer-list))
+             (when (and (buffer-file-name b)
+                        (string-prefix-p (expand-file-name "~/org/calendars/")
+                                         (buffer-file-name b))
+                        (not (buffer-modified-p b)))
+               (with-current-buffer b (revert-buffer t t t))))
+           (let ((buf (get-buffer "*Org Agenda*")))
+             (when (buffer-live-p buf)
+               (with-current-buffer buf
+                 (when (derived-mode-p 'org-agenda-mode)
+                   (org-agenda-redo t)))))))))))
+
+(defvar my/calendar-sync-timer nil
+  "Repeating timer that drives `my/calendar-sync'.")
+(when (timerp my/calendar-sync-timer) (cancel-timer my/calendar-sync-timer))
+(setq my/calendar-sync-timer (run-with-timer 30 1800 #'my/calendar-sync))
 ;; External calendars (read-only: Outlook + iCloud):1 ends here

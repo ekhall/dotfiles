@@ -1433,21 +1433,53 @@ Org's agenda only reads local Org files, so the two calendars are mirrored in
 and converted to Org:
 
 - [[https://vdirsyncer.pimutils.org/][vdirsyncer]] fetches each calendar into a single =.ics= file. *iCloud* uses
-  CalDAV (=caldav.icloud.com= + an Apple *app-specific password*); *Yale
-  Outlook* uses a published-ICS URL as a read-only ~http~ source, because
-  Microsoft removed CalDAV from Office 365.
+  CalDAV (=caldav.icloud.com= + an Apple *app-specific password* kept in
+  =~/.authinfo.gpg=, read by a helper). *Yale Outlook* will use a published-ICS
+  URL as a read-only ~http~ source -- Microsoft removed CalDAV from Office 365
+  -- once that URL exists (not yet wired up).
 - =ical2orgpy= converts each synced =.ics= into an =.org= file under
-  =~/org/calendars/=, which the agenda already picks up.
-- A launchd timer runs =vdirsyncer sync= + the conversion on a schedule; the
-  Org files are generated (git-ignored), never hand-edited.
+  =~/org/calendars/= with a readable =#+CATEGORY=, which the agenda picks up.
+- =~/.config/vdirsyncer/sync-calendars.sh= runs the sync + conversion; the Emacs
+  timer below (~my/calendar-sync~) fires it every 30 min while Emacs is open --
+  like the notmuch poll -- and refreshes an open agenda. The Org files are
+  generated, never hand-edited.
 
-Config lives outside the repo: =~/.config/vdirsyncer/config= (machine-local;
-the CalDAV password is fetched via ~password_command~, never stored plaintext).
-Setup steps are in =setup-notes.org=.
+Machine-local, no-secret config lives in =~/.config/vdirsyncer/= (=config=, the
+=icloud-pw.sh= helper, =icloud-names.tsv=, and =sync-calendars.sh=); the iCloud
+app password is in =~/.authinfo.gpg=, nothing plaintext.
 
 #+begin_src emacs-lisp
-;; Calendar mirrors are generated into ~/org/calendars/ by the launchd job;
-;; nothing to configure in Emacs beyond having them on `org-agenda-files'
-;; (set above).  `M-x org-revert-all-org-buffers' or reopening the agenda
-;; picks up a fresh sync.
+(defvar my/calendar-sync-script "~/.config/vdirsyncer/sync-calendars.sh"
+  "Script that syncs external calendars and regenerates ~/org/calendars/*.org.")
+
+(defun my/calendar-sync ()
+  "Refresh the external-calendar mirrors in the background, then rebuild an
+open agenda so new events appear.  The sync script runs detached, so Emacs
+never blocks on the network."
+  (interactive)
+  (let ((script (expand-file-name my/calendar-sync-script)))
+    (when (file-exists-p script)
+      (make-process
+       :name "calendar-sync" :buffer nil :noquery t
+       :command (list script)
+       :sentinel
+       (lambda (_proc event)
+         (when (string-prefix-p "finished" event)
+           ;; Revert any (unmodified) calendar buffers, then redo an open agenda.
+           (dolist (b (buffer-list))
+             (when (and (buffer-file-name b)
+                        (string-prefix-p (expand-file-name "~/org/calendars/")
+                                         (buffer-file-name b))
+                        (not (buffer-modified-p b)))
+               (with-current-buffer b (revert-buffer t t t))))
+           (let ((buf (get-buffer "*Org Agenda*")))
+             (when (buffer-live-p buf)
+               (with-current-buffer buf
+                 (when (derived-mode-p 'org-agenda-mode)
+                   (org-agenda-redo t)))))))))))
+
+(defvar my/calendar-sync-timer nil
+  "Repeating timer that drives `my/calendar-sync'.")
+(when (timerp my/calendar-sync-timer) (cancel-timer my/calendar-sync-timer))
+(setq my/calendar-sync-timer (run-with-timer 30 1800 #'my/calendar-sync))
 #+end_src
