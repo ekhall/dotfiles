@@ -15,3 +15,7 @@
 **/.notmuch-config
 mail/.local/lib/
 **/sasl2/
+
+# calendars: machine-local (capability URL / personal calendar names) — never commit
+calendars/**/yale-ics-url
+calendars/**/icloud-names.tsv

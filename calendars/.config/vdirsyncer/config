@@ -1,0 +1,40 @@
+# ~/.config/vdirsyncer/config — read-only mirror of external calendars into
+# local .ics files, which ical2orgpy then converts to Org for org-agenda.
+# Machine-local; holds no secrets (the iCloud password is fetched at run time
+# from ~/.authinfo.gpg via the helper script).
+
+[general]
+status_path = "~/.local/state/vdirsyncer/status/"
+
+# ---- iCloud (CalDAV, all calendars, read-only pull) ----
+[pair icloud]
+a = "icloud_local"
+b = "icloud_remote"
+collections = ["from b"]
+conflict_resolution = "b wins"
+metadata = ["displayname", "color"]
+
+[storage icloud_local]
+type = "singlefile"
+path = "~/.calendars/icloud/%s.ics"
+
+[storage icloud_remote]
+type = "caldav"
+url = "https://caldav.icloud.com/"
+username = "hall@absinthe.org"
+password.fetch = ["command", "~/.config/vdirsyncer/icloud-pw.sh"]
+read_only = true
+
+# ---- Yale Outlook (published ICS URL, read-only http source) ----
+[pair yale]
+a = "yale_local"
+b = "yale_remote"
+collections = null
+
+[storage yale_local]
+type = "singlefile"
+path = "~/.calendars/yale.ics"
+
+[storage yale_remote]
+type = "http"
+url.fetch = ["command", "sh", "-c", "cat ~/.config/vdirsyncer/yale-ics-url"]
