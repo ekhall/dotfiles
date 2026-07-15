@@ -1434,9 +1434,10 @@ and converted to Org:
 
 - [[https://vdirsyncer.pimutils.org/][vdirsyncer]] fetches each calendar into a single =.ics= file. *iCloud* uses
   CalDAV (=caldav.icloud.com= + an Apple *app-specific password* kept in
-  =~/.authinfo.gpg=, read by a helper). *Yale Outlook* will use a published-ICS
-  URL as a read-only ~http~ source -- Microsoft removed CalDAV from Office 365
-  -- once that URL exists (not yet wired up).
+  =~/.authinfo.gpg=, read by a helper). *Yale Outlook* uses a published-ICS URL
+  (from Outlook web) as a read-only ~http~ source, since Microsoft removed
+  CalDAV from Office 365. The Yale URL is a capability token, so it lives only
+  in the machine-local vdirsyncer =config=, never in the repo.
 - =ical2orgpy= converts each synced =.ics= into an =.org= file under
   =~/org/calendars/= with a readable =#+CATEGORY=, which the agenda picks up.
 - =~/.config/vdirsyncer/sync-calendars.sh= runs the sync + conversion; the Emacs
