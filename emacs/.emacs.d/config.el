@@ -726,7 +726,10 @@ fill the gap between them.  Widening the frame widens the title."
   (setq org-directory "~/org")
   (setq org-agenda-files
         (list org-directory
-              (expand-file-name "calendars" org-directory))))
+              (expand-file-name "calendars" org-directory)))
+  ;; Open the agenda on a 2-day view (today + tomorrow); `w'/`d'/etc. in the
+  ;; agenda still switch spans on the fly.
+  (setq org-agenda-span 2))
 ;; Org & Agenda:1 ends here
 
 ;; [[file:config.org::*External calendars (read-only: Outlook + iCloud)][External calendars (read-only: Outlook + iCloud):1]]
