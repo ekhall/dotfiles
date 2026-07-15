@@ -952,12 +952,15 @@ The ~notmuch~ Emacs package is pulled from ELPA (via ~use-package-always-ensure~
 rather than the copy Homebrew/apt ship with the CLI, so the same config loads
 identically on every machine. ~C-c m~ opens the notmuch hello screen.
 
-~notmuch-fcc-dirs~ files a copy of every sent message into the matching local
-Sent maildir *by From address*, so Yale-sent mail lands in =yale/Sent Items=
-and everything else in =fastmail/Sent=. The next ~mbsync~ uploads it (neither
-Fastmail nor Office 365 auto-saves SMTP-sent mail server-side, so this Fcc is
-what populates Sent). ~maildir:synchronize_flags~ in =~/.notmuch-config= means
-read/flagged state round-trips: notmuch <-> Maildir flags <-> mbsync <-> server.
+~notmuch-fcc-dirs~ handles the Sent copy *by From address*, and the two
+accounts differ. *Fastmail* does NOT save SMTP-sent mail server-side, so it
+gets a local Fcc into =fastmail/Sent= that the next ~mbsync~ uploads. *Yale*
+(Office 365) *does* auto-save sent mail into its Exchange =Sent Items=, so its
+Fcc is skipped (=nil=) and ~mbsync~ simply pulls the server's copy down -- a
+local Fcc there would only duplicate it (and trip the ~notmuch insert~ database
+lock, the "Insert failed" prompt, when it races the background ~notmuch new~).
+~maildir:synchronize_flags~ in =~/.notmuch-config= means read/flagged state
+round-trips: notmuch <-> Maildir flags <-> mbsync <-> server.
 
 #+begin_src emacs-lisp
 (use-package notmuch
@@ -987,11 +990,14 @@ read/flagged state round-trips: notmuch <-> Maildir flags <-> mbsync <-> server.
   (setq notmuch-show-indent-messages-width 4
         notmuch-wash-citation-lines-prefix 0
         notmuch-wash-citation-lines-suffix 0)
-  ;; File each sent message into the right local Sent maildir by From address;
-  ;; the next mbsync uploads it (neither Fastmail nor Office 365 auto-saves
-  ;; SMTP-sent mail, so this Fcc is what populates Sent).
+  ;; Fcc a local Sent copy only for Fastmail, which does NOT save SMTP-sent
+  ;; mail server-side.  Yale is Office 365, which auto-saves sent mail into its
+  ;; Exchange Sent Items (mbsync then pulls that copy down), so its Fcc is
+  ;; skipped (nil folder = no Fcc): a local Fcc there would only duplicate the
+  ;; server copy and trip the `notmuch insert' database lock ("Insert failed"
+  ;; when it races the background `notmuch new').
   (setq notmuch-fcc-dirs
-        '(("kevin\\.hall@yale\\.edu" . "yale/Sent Items")
+        '(("kevin\\.hall@yale\\.edu" . nil)
           (".*"                      . "fastmail/Sent"))))
 
 ;; Compose/send with notmuch's message-mode.  Emacs's built-in `smtpmail'

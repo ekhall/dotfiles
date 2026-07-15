@@ -380,9 +380,11 @@ it with headless Chrome:
   delete-move into Outlook's "Deleted Items" (via a push channel) is not built.
 - *Send*: =msmtp= submits the mail (=~/.msmtprc=); Emacs picks the account
   from the From header. Fastmail uses =smtp.fastmail.com:465= (app password);
-  Yale uses =smtp.office365.com:587= XOAUTH2 (OAuth token). A copy is Fcc'd to
-  the matching local Sent maildir (=fastmail/Sent= or =yale/Sent Items=) and
-  the next sync uploads it (neither server auto-saves SMTP-sent mail).
+  Yale uses =smtp.office365.com:587= XOAUTH2 (OAuth token). *Sent copy:*
+  Fastmail does not save SMTP-sent mail, so it gets a local Fcc into
+  =fastmail/Sent= that the next sync uploads; Yale (Office 365) auto-saves sent
+  mail into its Exchange =Sent Items= server-side, so its Fcc is skipped and
+  the next sync just pulls the server copy down.
 - *Read/flag state* round-trips: notmuch tags <-> Maildir flags <-> mbsync
   <-> server (=synchronize_flags=true=).
 
@@ -574,9 +576,11 @@ accounts:
 
 =config.org= routes message-mode through =message-send-mail-with-sendmail= ->
 =msmtp=, and =my/choose-msmtp-account= (on =message-send-mail-hook=) picks
-=-a yale= vs =-a fastmail= from the From header. =notmuch-fcc-dirs= is now an
-alist that files Yale-sent mail in =yale/Sent Items= and the rest in
-=fastmail/Sent=.
+=-a yale= vs =-a fastmail= from the From header. =notmuch-fcc-dirs= is an alist
+keyed on From: Fastmail Fccs to =fastmail/Sent=; Yale's entry is =nil= (no local
+Fcc) because Office 365 auto-saves sent mail to Exchange =Sent Items= itself --
+mbsync just pulls it down. (A local Yale Fcc would duplicate the server copy and
+trip the =notmuch insert= DB lock -- the "Insert failed" prompt on send.)
 
 Verify without sending: =msmtp --serverinfo -a yale= (expect =XOAUTH2= under
 AUTH) and =-a fastmail=. Then send a real test to yourself from each identity.

@@ -165,7 +165,7 @@
         <div class="row"><div class="k"><kbd>C-c C-c</kbd></div><div class="d">send (Fastmail or Yale, by From)</div></div>
         <div class="row"><div class="k"><kbd>C-c C-k</kbd></div><div class="d">cancel / kill the draft</div></div>
       </div>
-      <div class="note">Sent mail is filed to the local Sent maildir by account (<code>fastmail/Sent</code> or <code>yale/Sent&nbsp;Items</code>); the next <kbd>G</kbd> uploads it.</div>
+      <div class="note">Fastmail sent mail is Fcc'd to <code>fastmail/Sent</code> and uploaded on the next <kbd>G</kbd>. Yale (Office&nbsp;365) auto-saves to its Exchange <code>Sent&nbsp;Items</code> server-side, so <kbd>G</kbd> just pulls that copy down.</div>
       <div class="note"><b>Two identities:</b> msmtp picks the account from your <b>From</b> header — replies as <code>kevin.hall@yale.edu</code> go via Office&nbsp;365 (XOAUTH2), everything else via Fastmail.</div>
     </section>
 

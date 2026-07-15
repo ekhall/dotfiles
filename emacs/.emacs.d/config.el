@@ -442,11 +442,14 @@ line the way plain `TAB' / `org-cycle' require."
   (setq notmuch-show-indent-messages-width 4
         notmuch-wash-citation-lines-prefix 0
         notmuch-wash-citation-lines-suffix 0)
-  ;; File each sent message into the right local Sent maildir by From address;
-  ;; the next mbsync uploads it (neither Fastmail nor Office 365 auto-saves
-  ;; SMTP-sent mail, so this Fcc is what populates Sent).
+  ;; Fcc a local Sent copy only for Fastmail, which does NOT save SMTP-sent
+  ;; mail server-side.  Yale is Office 365, which auto-saves sent mail into its
+  ;; Exchange Sent Items (mbsync then pulls that copy down), so its Fcc is
+  ;; skipped (nil folder = no Fcc): a local Fcc there would only duplicate the
+  ;; server copy and trip the `notmuch insert' database lock ("Insert failed"
+  ;; when it races the background `notmuch new').
   (setq notmuch-fcc-dirs
-        '(("kevin\\.hall@yale\\.edu" . "yale/Sent Items")
+        '(("kevin\\.hall@yale\\.edu" . nil)
           (".*"                      . "fastmail/Sent"))))
 
 ;; Compose/send with notmuch's message-mode.  Emacs's built-in `smtpmail'
