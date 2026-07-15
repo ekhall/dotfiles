@@ -58,7 +58,7 @@ falling back to its default \"Sans Serif\"."
      :family (or mono-font (face-attribute 'default :family))
      ;; Per-machine default height (variable-pitch inherits this).
      :height (cond ((string-prefix-p "KevinsMacStudio" (system-name)) 180)
-                   ((string-prefix-p "MWC9JXJTGDXD" (system-name)) 170)
+                   ((string-prefix-p "MWC9JXJTGDXD" (system-name)) 180)
                    (t 130)))
     (when prose-font
       ;; Family only: leaving :height unspecified lets variable-pitch
@@ -87,7 +87,7 @@ falling back to its default \"Sans Serif\"."
         doom-themes-enable-italic t)
 
   ;; Load the theme (choose my favorite).
-  (load-theme 'doom-tomorrow-night t)
+  (load-theme 'doom-gruvbox t)
 
   ;; Enable flashing mode-line on errors.
   (doom-themes-visual-bell-config)
@@ -95,7 +95,7 @@ falling back to its default \"Sans Serif\"."
   ;; Corrects (and improves) org-mode's native fontification.
   (doom-themes-org-config))
 
-(defvar my/theme-toggle-list '(doom-tomorrow-night doom-tomorrow-day)
+(defvar my/theme-toggle-list '(doom-tomorrow-night doom-tomorrow-day doom-gruvbox)
   "Themes `my/toggle-theme' alternates between.")
 
 (defun my/toggle-theme ()
@@ -717,3 +717,21 @@ fill the gap between them.  Widening the frame widens the title."
 (with-eval-after-load 'eww
   (define-key eww-mode-map (kbd "W") #'my/eww-open-in-xwidget))
 ;; Nicer rendering, readable Org, and a real browser:1 ends here
+
+;; [[file:config.org::*Org & Agenda][Org & Agenda:1]]
+(use-package org
+  :ensure nil
+  :bind ("C-c a" . org-agenda)
+  :config
+  (setq org-directory "~/org")
+  (setq org-agenda-files
+        (list org-directory
+              (expand-file-name "calendars" org-directory))))
+;; Org & Agenda:1 ends here
+
+;; [[file:config.org::*External calendars (read-only: Outlook + iCloud)][External calendars (read-only: Outlook + iCloud):1]]
+;; Calendar mirrors are generated into ~/org/calendars/ by the launchd job;
+;; nothing to configure in Emacs beyond having them on `org-agenda-files'
+;; (set above).  `M-x org-revert-all-org-buffers' or reopening the agenda
+;; picks up a fresh sync.
+;; External calendars (read-only: Outlook + iCloud):1 ends here

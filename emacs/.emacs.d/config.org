@@ -56,6 +56,8 @@ size their columns independently, so they never line up). Realign with
 |                      | M-I             | eww-toggle-images             | toggle images on / off                         |
 |                      | W               | my/eww-open-in-xwidget        | reopen page in WebKit (xwidget)                |
 |                      | C-c u           | my/read-url-as-org            | read a URL (prompted) as clean Org             |
+|----------------------+-----------------+-------------------------------+------------------------------------------------|
+| Org                  | C-c a           | org-agenda                    | open the agenda (todos + calendars)            |
 
 * Introduction
 
@@ -228,7 +230,7 @@ falling back to its default \"Sans Serif\"."
      :family (or mono-font (face-attribute 'default :family))
      ;; Per-machine default height (variable-pitch inherits this).
      :height (cond ((string-prefix-p "KevinsMacStudio" (system-name)) 180)
-                   ((string-prefix-p "MWC9JXJTGDXD" (system-name)) 170)
+                   ((string-prefix-p "MWC9JXJTGDXD" (system-name)) 180)
                    (t 130)))
     (when prose-font
       ;; Family only: leaving :height unspecified lets variable-pitch
@@ -276,7 +278,7 @@ so ~load-theme~ never stops to prompt.
         doom-themes-enable-italic t)
 
   ;; Load the theme (choose my favorite).
-  (load-theme 'doom-tomorrow-night t)
+  (load-theme 'doom-gruvbox t)
 
   ;; Enable flashing mode-line on errors.
   (doom-themes-visual-bell-config)
@@ -284,7 +286,7 @@ so ~load-theme~ never stops to prompt.
   ;; Corrects (and improves) org-mode's native fontification.
   (doom-themes-org-config))
 
-(defvar my/theme-toggle-list '(doom-tomorrow-night doom-tomorrow-day)
+(defvar my/theme-toggle-list '(doom-tomorrow-night doom-tomorrow-day doom-gruvbox)
   "Themes `my/toggle-theme' alternates between.")
 
 (defun my/toggle-theme ()
@@ -1406,4 +1408,46 @@ Three upgrades layered on top of eww:
     (xwidget-webkit-browse-url url)))
 (with-eval-after-load 'eww
   (define-key eww-mode-map (kbd "W") #'my/eww-open-in-xwidget))
+#+end_src
+
+* Org & Agenda
+
+Baseline Org/agenda setup. ~org-directory~ is =~/org=; the agenda scans my own
+files there plus =~/org/calendars/=, where read-only mirrors of the *Outlook*
+and *iCloud* calendars are written (see below). ~C-c a~ opens the agenda.
+
+#+begin_src emacs-lisp
+(use-package org
+  :ensure nil
+  :bind ("C-c a" . org-agenda)
+  :config
+  (setq org-directory "~/org")
+  (setq org-agenda-files
+        (list org-directory
+              (expand-file-name "calendars" org-directory))))
+#+end_src
+
+** External calendars (read-only: Outlook + iCloud)
+
+Org's agenda only reads local Org files, so the two calendars are mirrored in
+and converted to Org:
+
+- [[https://vdirsyncer.pimutils.org/][vdirsyncer]] fetches each calendar into a single =.ics= file. *iCloud* uses
+  CalDAV (=caldav.icloud.com= + an Apple *app-specific password*); *Yale
+  Outlook* uses a published-ICS URL as a read-only ~http~ source, because
+  Microsoft removed CalDAV from Office 365.
+- =ical2orgpy= converts each synced =.ics= into an =.org= file under
+  =~/org/calendars/=, which the agenda already picks up.
+- A launchd timer runs =vdirsyncer sync= + the conversion on a schedule; the
+  Org files are generated (git-ignored), never hand-edited.
+
+Config lives outside the repo: =~/.config/vdirsyncer/config= (machine-local;
+the CalDAV password is fetched via ~password_command~, never stored plaintext).
+Setup steps are in =setup-notes.org=.
+
+#+begin_src emacs-lisp
+;; Calendar mirrors are generated into ~/org/calendars/ by the launchd job;
+;; nothing to configure in Emacs beyond having them on `org-agenda-files'
+;; (set above).  `M-x org-revert-all-org-buffers' or reopening the agenda
+;; picks up a fresh sync.
 #+end_src
