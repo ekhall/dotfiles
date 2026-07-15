@@ -643,25 +643,73 @@ Create =~/.config/systemd/user/notmuch-sync.service= (Type=oneshot running
   (=/Applications/Emacs.app -> /opt/homebrew/opt/emacs-plus@30/Emacs.app=) so
   future rebuilds are picked up automatically.
 
+* Calendars in org-agenda (read-only: iCloud + Yale/Outlook)
+
+Both calendars are mirrored read-only into Org files that org-agenda reads.
+=vdirsyncer= fetches each into =~/.calendars/=; =ical2orgpy= converts them to
+=~/org/calendars/*.org= (one =#+CATEGORY= per calendar); an Emacs timer
+(=my/calendar-sync= in =config.org=) reruns the sync every 30 min. iCloud uses
+CalDAV (=caldav.icloud.com=, app-specific password); Yale uses a published-ICS
+URL, since Office 365 has no CalDAV.
+
+** Install
+
+: brew install vdirsyncer pipx
+: pipx install ical2orgpy
+
+** Stow
+
+=stow --no-folding calendars= installs =~/.config/vdirsyncer/{config,
+icloud-pw.sh,sync-calendars.sh}=. =--no-folding= so the machine-local files
+below coexist beside them as real files.
+
+** Machine-local files (recreate by hand; gitignored)
+
+1. *iCloud app password* -- appleid.apple.com -> Sign-In and Security ->
+   App-Specific Passwords. Add to =~/.authinfo.gpg=:
+   : machine caldav.icloud.com login <apple-id> password <app-password>
+2. *Yale published-ICS URL* -- Outlook web -> Settings -> Calendar -> Shared
+   calendars -> Publish a calendar -> copy the ICS link. Store it (no newline):
+   : printf '%s' '<ics-url>' > ~/.config/vdirsyncer/yale-ics-url
+   The stowed =config= reads it via =url.fetch=, keeping the token out of the
+   repo. (If Yale disables publishing, switch to the Microsoft Graph API.)
+3. *iCloud calendar-name map* (=icloud-names.tsv=, gives readable =#+CATEGORY=)
+   -- regenerate from discovery:
+   : vdirsyncer discover icloud </dev/null 2>&1 \
+   :   | grep -oE '"[^"]+" \("[^"]+"\)' \
+   :   | sed -E 's/^"([^"]+)" \("([^"]+)"\)$/\1\t\2/' > ~/.config/vdirsyncer/icloud-names.tsv
+
+** First sync
+
+: yes | vdirsyncer discover icloud     # confirm creating local collections
+: yes | vdirsyncer discover yale
+: ~/.config/vdirsyncer/sync-calendars.sh   # sync + convert -> ~/org/calendars/
+
+Then =C-c a= in Emacs opens the agenda (=g= forces a refresh). The Org files
+under =~/org/calendars/= are generated -- never hand-edit them.
+
 * Files at a glance (what's where)
 
 Managed with GNU Stow. On a new machine: clone the repo to =~/dotfiles=,
-then =cd ~/dotfiles && stow --no-folding emacs mail=. =--no-folding= is
+then =cd ~/dotfiles && stow --no-folding emacs mail calendars=. =--no-folding= is
 important for =mail= so Stow symlinks only the individual hook files and
 never turns =~/Maildir= (your mail data) into a symlink. Then recreate the
 machine-local files below (they're deliberately NOT in the public repo).
 
-| File                                | In dotfiles?       | Per-machine action                                            |
-|-------------------------------------+--------------------+---------------------------------------------------------------|
-| =config.org= / =config.el=          | yes (stow =emacs=) | none (portable)                                               |
-| =setup-notes.org= (this file)       | yes (stow =emacs=) | none                                                          |
-| =~/.mbsyncrc=                       | yes (stow =mail=)  | none (portable)                                               |
-| =~/.local/bin/mutt_oauth2.py=       | yes (stow =mail=)  | none (tenant + client_id already set)                         |
-| =~/Maildir/.notmuch/hooks/pre-new=  | yes (stow =mail=)  | none (SASL_PATH is OS-guarded)                                |
-| =~/Maildir/.notmuch/hooks/post-new= | yes (stow =mail=)  | folder names if account differs                               |
-| =~/.notmuch-config=                 | *no* (local)       | recreate; =database.path= per OS                              |
-| =~/.msmtprc=                        | *no* (local)       | recreate; =chmod 600=; no secrets                             |
-| =~/.authinfo.gpg=                   | *no* (secret)      | own encrypted secret                                          |
-| =~/.mutt_oauth2_yale.token=         | *no* (secret)      | own encrypted OAuth token                                     |
-| =~/.local/lib/sasl2/libxoauth2.so=  | *no* (binary)      | rebuild per OS; Linux -> system dir                           |
-| =~/.gnupg/gpg-agent.conf= (macOS)   | *no* (local)       | =allow-loopback-pinentry= + =pinentry-program= (pinentry-mac) |
+| File                                    | In dotfiles?           | Per-machine action                                            |
+|-----------------------------------------+------------------------+---------------------------------------------------------------|
+| =config.org= / =config.el=              | yes (stow =emacs=)     | none (portable)                                               |
+| =setup-notes.org= (this file)           | yes (stow =emacs=)     | none                                                          |
+| =~/.mbsyncrc=                           | yes (stow =mail=)      | none (portable)                                               |
+| =~/.local/bin/mutt_oauth2.py=           | yes (stow =mail=)      | none (tenant + client_id already set)                         |
+| =~/Maildir/.notmuch/hooks/pre-new=      | yes (stow =mail=)      | none (SASL_PATH is OS-guarded)                                |
+| =~/Maildir/.notmuch/hooks/post-new=     | yes (stow =mail=)      | folder names if account differs                               |
+| =~/.notmuch-config=                     | *no* (local)           | recreate; =database.path= per OS                              |
+| =~/.msmtprc=                            | *no* (local)           | recreate; =chmod 600=; no secrets                             |
+| =~/.authinfo.gpg=                       | *no* (secret)          | own encrypted secret                                          |
+| =~/.mutt_oauth2_yale.token=             | *no* (secret)          | own encrypted OAuth token                                     |
+| =~/.local/lib/sasl2/libxoauth2.so=      | *no* (binary)          | rebuild per OS; Linux -> system dir                           |
+| =~/.gnupg/gpg-agent.conf= (macOS)       | *no* (local)           | =allow-loopback-pinentry= + =pinentry-program= (pinentry-mac) |
+| =~/.config/vdirsyncer/= (3 files)       | yes (stow =calendars=) | config + icloud-pw.sh + sync-calendars.sh (creds via fetch)   |
+| =~/.config/vdirsyncer/yale-ics-url=     | *no* (local)           | recreate; Yale published-ICS token                            |
+| =~/.config/vdirsyncer/icloud-names.tsv= | *no* (local)           | regenerate from =vdirsyncer discover=                         |

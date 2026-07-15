@@ -1445,9 +1445,12 @@ and converted to Org:
   like the notmuch poll -- and refreshes an open agenda. The Org files are
   generated, never hand-edited.
 
-Machine-local, no-secret config lives in =~/.config/vdirsyncer/= (=config=, the
-=icloud-pw.sh= helper, =icloud-names.tsv=, and =sync-calendars.sh=); the iCloud
-app password is in =~/.authinfo.gpg=, nothing plaintext.
+The vdirsyncer =config=, the =icloud-pw.sh= helper, and =sync-calendars.sh=
+come from =stow calendars=. Only two files are machine-local and gitignored:
+=~/.config/vdirsyncer/yale-ics-url= (the Yale capability token, read by the
+config via ~url.fetch~) and =icloud-names.tsv= (personal calendar names). The
+iCloud app password is in =~/.authinfo.gpg=; nothing is stored plaintext.
+Rebuild steps are in =setup-notes.org=.
 
 #+begin_src emacs-lisp
 (defvar my/calendar-sync-script "~/.config/vdirsyncer/sync-calendars.sh"
