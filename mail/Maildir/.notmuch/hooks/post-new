@@ -32,5 +32,27 @@ notmuch tag +sent -unread   -- 'tag:new and (path:"yale/Sent Items/**" or path:y
 notmuch tag +spam    -inbox -- 'tag:new and (path:"yale/Junk Email/**" or path:yale/Junk/**)'
 notmuch tag +deleted -inbox -- 'tag:new and path:"yale/Deleted Items/**"'
 
+# ── Reconcile MOVED messages (deleted/archived/filed in the WEB UI) ──
+# When mail is moved server-side (e.g. deleted in OWA: Inbox -> Deleted Items),
+# mbsync mirrors the move and notmuch sees the same Message-ID at a new path --
+# i.e. a FILE RENAME, not a new message. Such mail never gets `tag:new`, so all
+# the rules above miss it and it keeps its stale tags (still showing in the
+# inbox forever). These path-vs-tag queries are cheap and idempotent: they only
+# touch mail whose location no longer matches its tags.
+#
+# Deliberately ONE-DIRECTIONAL: drop `inbox` when a message has LEFT the Inbox
+# folder, but never re-ADD `inbox` from path -- otherwise locally-archived mail
+# (whose file still sits in the Inbox folder) would be resurrected every sync.
+
+# Left the Inbox server-side (deleted / archived / filed) -> no longer inbox.
+notmuch tag -inbox -- 'tag:inbox and tag:fastmail and not path:fastmail/Inbox/**'
+notmuch tag -inbox -- 'tag:inbox and tag:yale     and not path:yale/Inbox/**'
+
+# Landed in a Deleted/Junk folder server-side -> tag it (hidden via exclude_tags).
+notmuch tag +deleted -- 'path:fastmail/Trash/** and not tag:deleted'
+notmuch tag +spam    -- 'path:"fastmail/Junk Mail/**" and not tag:spam'
+notmuch tag +deleted -- 'path:"yale/Deleted Items/**" and not tag:deleted'
+notmuch tag +spam    -- '(path:"yale/Junk Email/**" or path:yale/Junk/**) and not tag:spam'
+
 # Remaining custom folders keep only their account tag. Clear "new" from all.
 notmuch tag -new -- tag:new

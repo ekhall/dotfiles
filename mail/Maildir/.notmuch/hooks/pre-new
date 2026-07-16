@@ -14,12 +14,18 @@
 TRASH_DIR="$HOME/Maildir/fastmail/Trash/cur"
 mkdir -p "$TRASH_DIR"
 
-# (1) Move every message tagged `deleted` that is not already in Trash into
-#     the Trash maildir. mbsync (step 2) then removes it from its old Fastmail
-#     folder and uploads it to Fastmail Trash -- recoverable there until
-#     Fastmail auto-purges (~30 days). isync stores its UID in the filename as
-#     ",U=<n>"; strip it so the moved file is treated as a NEW Trash message.
-notmuch search --output=files 'tag:deleted and not path:fastmail/Trash/**' 2>/dev/null \
+# (1) Move Fastmail messages tagged `deleted` into the Fastmail Trash maildir.
+#     mbsync (step 2) then removes it from its old Fastmail folder and uploads
+#     it to Fastmail Trash -- recoverable there until Fastmail auto-purges
+#     (~30 days). isync stores its UID in the filename as ",U=<n>"; strip it so
+#     the moved file is treated as a NEW Trash message.
+#
+#     !! `path:fastmail/**` is an ACCOUNT BOUNDARY GUARD -- do not remove it. !!
+#     Without it this query matches `tag:deleted` mail from EVERY account, so
+#     Yale mail tagged deleted gets moved into the Fastmail maildir and uploaded
+#     to the Fastmail account (and expunged from Yale). This delete-move is
+#     Fastmail-only by design; Yale deletion is tag-only.
+notmuch search --output=files 'tag:deleted and path:fastmail/** and not path:fastmail/Trash/**' 2>/dev/null \
 | while IFS= read -r src; do
     [ -f "$src" ] || continue
     base=$(basename "$src")
