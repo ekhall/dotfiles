@@ -65,7 +65,9 @@ via =exec-path-from-shell= (already configured in =config.org=).
 sudo apt install isync notmuch gnupg stow
 #+end_src
 
-Arch: =sudo pacman -S isync notmuch gnupg stow=. Fedora: =sudo dnf install isync notmuch gnupg2 stow=.
+Arch: =sudo pacman -S isync notmuch gnupg stow= (full package set and the
+Arch-specific deltas: [[*Linux (Arch) — deltas from the macOS path]]).
+Fedora: =sudo dnf install isync notmuch gnupg2 stow=.
 
 The Emacs ~notmuch~ package is installed from *MELPA* by =use-package= on
 first launch, so you do NOT need the distro's =notmuch-emacs= package. (The
@@ -608,6 +610,90 @@ Create =~/Library/LaunchAgents/io.archetyp.notmuch-sync.plist= running
 Create =~/.config/systemd/user/notmuch-sync.service= (Type=oneshot running
 =mbsync -a && notmuch new=) plus a =notmuch-sync.timer= with
 =OnUnitActiveSec=5min=, then =systemctl --user enable --now notmuch-sync.timer=.
+
+* Linux (Arch) — deltas from the macOS path
+
+Notes from building this stack on the Arch box. The stowed config (=config.org=,
+=~/.mbsyncrc=, hooks, vdirsyncer) is portable and needed *no* changes; everything
+below is either a package name, a machine-local file, or a gotcha.
+
+** Packages (one line)
+
+#+begin_src sh
+sudo pacman -S --needed isync notmuch gnupg stow msmtp vdirsyncer python-pipx
+pipx install ical2orgpy          # not in the Arch repos; lands in ~/.local/bin
+#+end_src
+
+The cyrus-sasl headers (=/usr/include/sasl/sasl.h=) and the autotools chain come
+with =base-devel= + =cyrus-sasl=, which a normal Arch install already has -- the
+XOAUTH2 plugin built with no extra deps.
+
+** Create the Maildir roots BEFORE the first sync
+
+The single thing that actually broke here. isync does not create a
+=MaildirStore='s top-level =Path=: =Create Near= only creates mailboxes *under*
+an existing store root. With =~/Maildir/yale/= absent, =mbsync -a= prints
+
+: Maildir error: cannot open store '/home/hall/Maildir/yale'
+
+and *skips the whole Yale channel* while Fastmail syncs fine -- and because the
+=pre-new= hook ends in =mbsync -a || true=, the failure is swallowed and
+=notmuch new= happily indexes zero Yale mail. Symptom is a silent =tag:yale= of 0.
+So, once per account:
+
+#+begin_src sh
+mkdir -p ~/Maildir/fastmail ~/Maildir/yale
+#+end_src
+
+** cyrus-sasl-xoauth2 -> system SASL dir (no SASL_PATH)
+
+As the Yale section says, Linux needs no =SASL_PATH= and has no conflicting Apple
+plugin. On Arch it installs into =/usr/lib/sasl2/=:
+
+#+begin_src sh
+cd ~/.local/opt && git clone --depth 1 https://github.com/moriyoshi/cyrus-sasl-xoauth2.git
+cd cyrus-sasl-xoauth2 && ./autogen.sh && ./configure && make && sudo make install
+#+end_src
+
+Note it is =./autogen.sh= (not =glibtoolize=) and =libxoauth2.so= keeps its
+libtool name -- no manual rename/symlink farm like the macOS build. Verify with
+=msmtp --serverinfo -a yale=: XOAUTH2 must appear under the auth methods.
+
+** msmtp CA bundle
+
+=tls_trust_file /etc/ssl/cert.pem= is the *macOS* path. On Arch use:
+
+: tls_trust_file /etc/ssl/certs/ca-certificates.crt
+
+(a symlink to =/etc/ca-certificates/extracted/tls-ca-bundle.pem=).
+
+** GPG
+
+Nothing to do: the desktop pinentry under a graphical session decrypts
+=~/.authinfo.gpg= and the OAuth token fine for both Emacs and the background
+poll. No =allow-loopback-pinentry=, no =pinentry-mac= equivalent needed.
+=config.org= only sets =epa-pinentry-mode 'loopback= on macOS.
+
+** Indexing a big backlog without re-triggering a multi-hour mbsync
+
+=notmuch new= runs =pre-new=, which runs =mbsync -a= -- so re-indexing an
+already-downloaded backlog would re-drive the whole (throttled) Yale sync first.
+To index mail that is already on disk, skip the hooks and apply the tag rules by
+hand afterwards (=post-new= only acts on =tag:new=, which the fresh index sets,
+so the result is identical):
+
+#+begin_src sh
+notmuch new --no-hooks          # index only; no fetch
+~/Maildir/.notmuch/hooks/post-new   # folder -> tag rules, then clears `new'
+#+end_src
+
+** Yale first sync is slow
+
+Office 365 throttled the initial pull hard: ~9 hours for the first pass, which
+ended in =Socket error ... timeout= after finishing only the Inbox. That is the
+expected behaviour flagged in the Yale section -- re-running =mbsync yale=
+resumes and picks up the remaining folders. Final state on this box: ~32k Yale
+messages (=Archive*= stays server-side by the =Patterns= exclusion, as designed).
 
 * Troubleshooting / gotchas learned during setup
 
