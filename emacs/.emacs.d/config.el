@@ -79,6 +79,10 @@ falling back to its default \"Sans Serif\"."
 ;; [[file:config.org::*Themes][Themes:1]]
 (setq custom-safe-themes t)
 
+;; Local themes (e.g. logic-dark) live here, next to the packaged ones.
+(add-to-list 'custom-theme-load-path
+             (expand-file-name "themes" user-emacs-directory))
+
 (use-package doom-themes
   :ensure t
   :config
@@ -86,16 +90,17 @@ falling back to its default \"Sans Serif\"."
   (setq doom-themes-enable-bold t
         doom-themes-enable-italic t)
 
-  ;; Load the theme (choose my favorite).
-  (load-theme 'doom-gruvbox t)
-
   ;; Enable flashing mode-line on errors.
   (doom-themes-visual-bell-config)
 
   ;; Corrects (and improves) org-mode's native fontification.
   (doom-themes-org-config))
 
-(defvar my/theme-toggle-list '(doom-tomorrow-night doom-tomorrow-day doom-gruvbox)
+;; Load the default theme after doom-themes so its org fontification
+;; is in place; logic-dark is a plain deftheme, not a doom theme.
+(load-theme 'logic-dark t)
+
+(defvar my/theme-toggle-list '(logic-dark doom-tomorrow-day)
   "Themes `my/toggle-theme' alternates between.")
 
 (defun my/toggle-theme ()

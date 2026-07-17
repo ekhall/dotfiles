@@ -255,20 +255,32 @@ downloads) when it exists at this path.
 
 * Themes
 
-Doom Themes provides the color theme plus small integrations (a
-flashing mode-line on errors, and better =org-mode= fontification).
-~C-c t~ toggles between ~doom-tomorrow-night~ (dark, the default) and
+The default is ~logic-dark~, a hand-built theme in =themes/= whose
+neutral grays and sparing accent hues are sampled from Apple's
+professional creative tools (Logic Pro X). It sets *colors only* and
+never touches the font, so the per-machine faces from [[Fonts]] carry
+through unchanged. ~C-c t~ toggles between it (dark) and
 ~doom-tomorrow-day~ (light), alternating from whichever theme is
 currently active.
 
-Both themes ship *inside* the ~doom-themes~ package -- there is no
-separate =doom-tomorrow-night= package on MELPA, so trying to
-~:ensure~ one fails with "package is unavailable". The theme is simply
-~load-theme~'d below; ~custom-safe-themes t~ marks every theme trusted
-so ~load-theme~ never stops to prompt.
+Doom Themes is still pulled in for its small integrations (a flashing
+mode-line on errors, better =org-mode= fontification) and for the
+light toggle target. Its themes ship *inside* the ~doom-themes~
+package -- there is no separate =doom-tomorrow-day= package on MELPA,
+so trying to ~:ensure~ one fails with "package is unavailable". Themes
+are simply ~load-theme~'d below; ~custom-safe-themes t~ marks every
+theme trusted so ~load-theme~ never stops to prompt.
+
+=themes/= (where ~logic-dark~ lives) is added to
+~custom-theme-load-path~ so ~load-theme~ can find local themes
+alongside the packaged ones.
 
 #+begin_src emacs-lisp
 (setq custom-safe-themes t)
+
+;; Local themes (e.g. logic-dark) live here, next to the packaged ones.
+(add-to-list 'custom-theme-load-path
+             (expand-file-name "themes" user-emacs-directory))
 
 (use-package doom-themes
   :ensure t
@@ -277,16 +289,17 @@ so ~load-theme~ never stops to prompt.
   (setq doom-themes-enable-bold t
         doom-themes-enable-italic t)
 
-  ;; Load the theme (choose my favorite).
-  (load-theme 'doom-gruvbox t)
-
   ;; Enable flashing mode-line on errors.
   (doom-themes-visual-bell-config)
 
   ;; Corrects (and improves) org-mode's native fontification.
   (doom-themes-org-config))
 
-(defvar my/theme-toggle-list '(doom-tomorrow-night doom-tomorrow-day doom-gruvbox)
+;; Load the default theme after doom-themes so its org fontification
+;; is in place; logic-dark is a plain deftheme, not a doom theme.
+(load-theme 'logic-dark t)
+
+(defvar my/theme-toggle-list '(logic-dark doom-tomorrow-day)
   "Themes `my/toggle-theme' alternates between.")
 
 (defun my/toggle-theme ()
