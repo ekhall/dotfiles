@@ -550,8 +550,9 @@ already running, just say so rather than starting a second one."
 ;; on `C-c r'.  `defvar' only assigns when the symbol is unbound, so once
 ;; the daemon has a value it ignores later edits until a full restart;
 ;; `defconst' reassigns on every load.
-(defconst my/freshrss-host "100.121.73.82"
-  "Host/IP of the FreshRSS instance, as reached over Tailscale.")
+(defconst my/freshrss-host "freshrss.penrhynhalls.net"
+  "Hostname of the FreshRSS instance, reverse-proxied by Caddy.
+Resolves to the Caddy host on the LAN, and over Tailscale when away.")
 
 (defconst my/freshrss-user "hall"
   "FreshRSS account name, used for the Fever URL and auth-source lookup.")
@@ -573,7 +574,7 @@ auth-source, never from this file."
   (let* ((host my/freshrss-host) (user my/freshrss-user)
          (pw (auth-source-pick-first-password :host host :user user))
          (key (md5 (concat user ":" pw)))
-         (url (format "http://%s/api/fever.php?api&unread_item_ids" host))
+         (url (format "https://%s/api/fever.php?api&unread_item_ids" host))
          (url-request-method "POST")
          (url-request-extra-headers
           '(("Content-Type" . "application/x-www-form-urlencoded")))
@@ -662,8 +663,8 @@ fill the gap between them.  Widening the frame widens the title."
   ;; Bring FreshRSS categories in as Elfeed tags.
   (setq elfeed-protocol-fever-fetch-category-as-tag t)
   (setq elfeed-feeds
-        (list (list (format "fever+http://%s@%s" my/freshrss-user my/freshrss-host)
-                    :api-url (format "http://%s/api/fever.php" my/freshrss-host)
+        (list (list (format "fever+https://%s@%s" my/freshrss-user my/freshrss-host)
+                    :api-url (format "https://%s/api/fever.php" my/freshrss-host)
                     :password (auth-source-pick-first-password
                                :host my/freshrss-host
                                :user my/freshrss-user))))

@@ -1152,10 +1152,12 @@ source of truth for subscriptions -- feeds are managed there, not in
 this file -- and elfeed just mirrors them, pushing read/starred
 changes back immediately.
 
-FreshRSS runs in a Proxmox LXC container and is reached over Tailscale
-(~100.121.73.82~, the container's own tailnet address). Because Tailscale is already WireGuard-encrypted
-end to end, plain HTTP over the tailnet is fine -- no TLS or
-~--insecure~ curl flags needed.
+FreshRSS runs in a Proxmox LXC container, reverse-proxied by Caddy at
+~https://freshrss.penrhynhalls.net~.  The name resolves to the Caddy
+host directly on the LAN, and over Tailscale (via the ~proxmox~ subnet
+router) when away -- same URL either way.  Caddy terminates TLS with a
+real Let's Encrypt wildcard cert, so plain ~https~ works with no
+~--insecure~ curl flags.
 
 ** Secret handling
 
@@ -1164,7 +1166,7 @@ the dotfiles repo). It is read at load time from ~auth-source~
 (=~/.authinfo.gpg=), keyed on the host and user below. Add a line like
 this to =~/.authinfo.gpg= (or =~/.authinfo=):
 
-: machine 100.121.73.82 login YOUR-FRESHRSS-USER password YOUR-FEVER-API-PASSWORD
+: machine freshrss.penrhynhalls.net login YOUR-FRESHRSS-USER password YOUR-FEVER-API-PASSWORD
 
 If the lookup returns nil (password not yet stored) elfeed simply
 won't authenticate until it is added -- nothing here breaks.
@@ -1206,8 +1208,9 @@ the default faces and the ~kbd-help~ tooltip; only the geometry changes.
 ;; on `C-c r'.  `defvar' only assigns when the symbol is unbound, so once
 ;; the daemon has a value it ignores later edits until a full restart;
 ;; `defconst' reassigns on every load.
-(defconst my/freshrss-host "100.121.73.82"
-  "Host/IP of the FreshRSS instance, as reached over Tailscale.")
+(defconst my/freshrss-host "freshrss.penrhynhalls.net"
+  "Hostname of the FreshRSS instance, reverse-proxied by Caddy.
+Resolves to the Caddy host on the LAN, and over Tailscale when away.")
 
 (defconst my/freshrss-user "hall"
   "FreshRSS account name, used for the Fever URL and auth-source lookup.")
@@ -1229,7 +1232,7 @@ auth-source, never from this file."
   (let* ((host my/freshrss-host) (user my/freshrss-user)
          (pw (auth-source-pick-first-password :host host :user user))
          (key (md5 (concat user ":" pw)))
-         (url (format "http://%s/api/fever.php?api&unread_item_ids" host))
+         (url (format "https://%s/api/fever.php?api&unread_item_ids" host))
          (url-request-method "POST")
          (url-request-extra-headers
           '(("Content-Type" . "application/x-www-form-urlencoded")))
@@ -1318,8 +1321,8 @@ fill the gap between them.  Widening the frame widens the title."
   ;; Bring FreshRSS categories in as Elfeed tags.
   (setq elfeed-protocol-fever-fetch-category-as-tag t)
   (setq elfeed-feeds
-        (list (list (format "fever+http://%s@%s" my/freshrss-user my/freshrss-host)
-                    :api-url (format "http://%s/api/fever.php" my/freshrss-host)
+        (list (list (format "fever+https://%s@%s" my/freshrss-user my/freshrss-host)
+                    :api-url (format "https://%s/api/fever.php" my/freshrss-host)
                     :password (auth-source-pick-first-password
                                :host my/freshrss-host
                                :user my/freshrss-user))))
