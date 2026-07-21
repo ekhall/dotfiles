@@ -774,6 +774,35 @@ below coexist beside them as real files.
 Then =C-c a= in Emacs opens the agenda (=g= forces a refresh). The Org files
 under =~/org/calendars/= are generated -- never hand-edit them.
 
+* Rust (rust-ts-mode + eglot)
+
+Everything Emacs-side is built-in and travels in =config.org= automatically
+(see [[file:config.org::*Rust][config.org: Rust]] for how
+~rust-ts-mode~/~eglot~/~flymake~ fit together). Two things are NOT bundled
+with Emacs and need installing per
+machine: the Rust toolchain itself, and the tree-sitter grammar (a small
+compiled parser library, unrelated to the language server -- see config.org
+for that distinction).
+
+** Install the Rust toolchain
+
+: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+: rustup component add rust-analyzer
+
+This puts =rustc=, =cargo=, and =rust-analyzer= on =PATH= via
+=~/.cargo/bin= (added to shell =PATH= by rustup's own installer; restart the
+shell/Emacs afterward so =exec-path-from-shell= -- see [[*Inherit the shell PATH (macOS)][config.org]] -- picks it up).
+
+** Tree-sitter grammar (built automatically)
+
+=config.org='s Rust section calls ~treesit-install-language-grammar~ itself
+the first time Emacs loads with no Rust grammar present, so there is nothing
+to run by hand -- it needs Git, a C compiler, and network access (all already
+required/available per [[*1. Install packages]]). It compiles to
+=~/.emacs.d/tree-sitter/= (gitignored -- machine-specific binary, not carried
+in the repo). To force a rebuild (e.g. after a tree-sitter ABI change),
+delete that directory and reload =config.org=.
+
 * Files at a glance (what's where)
 
 Managed with GNU Stow. On a new machine: clone the repo to =~/dotfiles=,

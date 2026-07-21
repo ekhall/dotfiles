@@ -386,14 +386,28 @@ line the way plain `TAB' / `org-cycle' require."
 ;; Projects (project.el):1 ends here
 
 ;; [[file:config.org::*Rust][Rust:1]]
+;; Tell `treesit-install-language-grammar' where to fetch the Rust grammar's
+;; source from.  This alist entry is only a recipe; it does not itself
+;; download or build anything.
 (add-to-list 'treesit-language-source-alist
              '(rust "https://github.com/tree-sitter/tree-sitter-rust"))
 
+;; Build the grammar now if it isn't already installed (first machine setup
+;; only -- subsequent loads see it's present and skip straight past this).
 (unless (treesit-language-available-p 'rust)
   (treesit-install-language-grammar 'rust))
 
+;; Emacs ships an older, non-tree-sitter `rust-mode' entry in its defaults;
+;; this remaps any reference to it over to our tree-sitter `rust-ts-mode'
+;; instead, so other packages/commands that ask for "the Rust mode" get the
+;; modern one.
 (add-to-list 'major-mode-remap-alist '(rust-mode . rust-ts-mode))
+;; Belt-and-suspenders: make *.rs files open in rust-ts-mode directly, in case
+;; something looks up auto-mode-alist without going through the remap above.
 (add-to-list 'auto-mode-alist '("\\.rs\\'" . rust-ts-mode))
+;; The actual LSP wire-up: every time a buffer enters rust-ts-mode, start (or
+;; attach to) rust-analyzer for it.  `eglot-ensure' is idempotent -- safe to
+;; run again on an already-connected buffer.
 (add-hook 'rust-ts-mode-hook #'eglot-ensure)
 ;; Rust:1 ends here
 
