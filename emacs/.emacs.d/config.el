@@ -385,6 +385,18 @@ line the way plain `TAB' / `org-cycle' require."
   (setq project-switch-commands #'magit-project-status))
 ;; Projects (project.el):1 ends here
 
+;; [[file:config.org::*Rust][Rust:1]]
+(add-to-list 'treesit-language-source-alist
+             '(rust "https://github.com/tree-sitter/tree-sitter-rust"))
+
+(unless (treesit-language-available-p 'rust)
+  (treesit-install-language-grammar 'rust))
+
+(add-to-list 'major-mode-remap-alist '(rust-mode . rust-ts-mode))
+(add-to-list 'auto-mode-alist '("\\.rs\\'" . rust-ts-mode))
+(add-hook 'rust-ts-mode-hook #'eglot-ensure)
+;; Rust:1 ends here
+
 ;; [[file:config.org::*Encrypted Files (EasyPG)][Encrypted Files (EasyPG):1]]
 (setq epa-file-encrypt-to '("hall@absinthe.org")
       epa-file-select-keys nil)

@@ -901,6 +901,37 @@ built-in ~project~ from ELPA.
   (setq project-switch-commands #'magit-project-status))
 #+end_src
 
+* Programming Languages
+
+** Rust
+
+Built-in Emacs 30 pieces only -- no third-party mode or LSP client:
+~rust-ts-mode~ (tree-sitter major mode) and ~eglot~ (LSP client) talking to
+~rust-analyzer~ (installed via ~rustup~, on =PATH= already). Diagnostics show
+up through ~flymake~ (built-in, wired automatically by eglot) and completions
+through the existing Corfu/Cape stack -- eglot registers a normal
+~completion-at-point-function~, nothing Rust-specific to add there. ~C-c p c~
+(from [[*Projects (project.el)]]) runs ~cargo~ via ~compile~ at the project root
+for build/test/run.
+
+The tree-sitter *grammar* (the compiled parser eglot/rust-ts-mode need) is
+separate from the language server and isn't bundled with Emacs; the one-time
+build below needs Git, a C compiler, and network access. It installs to
+=~/.emacs.d/tree-sitter/= (gitignored -- a machine-specific compiled binary,
+not something to carry in the repo).
+
+#+begin_src emacs-lisp
+(add-to-list 'treesit-language-source-alist
+             '(rust "https://github.com/tree-sitter/tree-sitter-rust"))
+
+(unless (treesit-language-available-p 'rust)
+  (treesit-install-language-grammar 'rust))
+
+(add-to-list 'major-mode-remap-alist '(rust-mode . rust-ts-mode))
+(add-to-list 'auto-mode-alist '("\\.rs\\'" . rust-ts-mode))
+(add-hook 'rust-ts-mode-hook #'eglot-ensure)
+#+end_src
+
 * Encrypted Files (EasyPG)
 
 Emacs's built-in EasyPG Assistant (~epa-file~, enabled by default)
