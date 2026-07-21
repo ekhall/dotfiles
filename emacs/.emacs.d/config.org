@@ -255,25 +255,19 @@ downloads) when it exists at this path.
 
 * Themes
 
-The default is ~logic-dark~, a hand-built theme in =themes/= whose
-neutral grays and sparing accent hues are sampled from Apple's
-professional creative tools (Logic Pro X). It sets *colors only* and
-never touches the font, so the per-machine faces from [[Fonts]] carry
-through unchanged. ~C-c t~ toggles between it (dark) and
-~doom-tomorrow-day~ (light), alternating from whichever theme is
-currently active.
+The default is ~doom-tomorrow-night~ (dark). ~C-c t~ toggles between it and
+~doom-tomorrow-day~ (light), alternating from whichever theme is currently
+active. Both ship *inside* the ~doom-themes~ package -- there is no separate
+=doom-tomorrow-night=/=doom-tomorrow-day= package on MELPA, so trying to
+~:ensure~ one fails with "package is unavailable". Themes are simply
+~load-theme~'d below; ~custom-safe-themes t~ marks every theme trusted so
+~load-theme~ never stops to prompt.
 
-Doom Themes is still pulled in for its small integrations (a flashing
-mode-line on errors, better =org-mode= fontification) and for the
-light toggle target. Its themes ship *inside* the ~doom-themes~
-package -- there is no separate =doom-tomorrow-day= package on MELPA,
-so trying to ~:ensure~ one fails with "package is unavailable". Themes
-are simply ~load-theme~'d below; ~custom-safe-themes t~ marks every
-theme trusted so ~load-theme~ never stops to prompt.
-
-=themes/= (where ~logic-dark~ lives) is added to
-~custom-theme-load-path~ so ~load-theme~ can find local themes
-alongside the packaged ones.
+=themes/= holds ~logic-dark~, a hand-built local theme (neutral grays and
+sparing accent hues sampled from Apple's Logic Pro X) that used to be the
+default; it is no longer loaded, but =themes/= stays on
+~custom-theme-load-path~ so ~(load-theme 'logic-dark t)~ still works if I
+switch back to it.
 
 #+begin_src emacs-lisp
 (setq custom-safe-themes t)
@@ -296,10 +290,10 @@ alongside the packaged ones.
   (doom-themes-org-config))
 
 ;; Load the default theme after doom-themes so its org fontification
-;; is in place; logic-dark is a plain deftheme, not a doom theme.
-(load-theme 'logic-dark t)
+;; is in place.
+(load-theme 'doom-tomorrow-night t)
 
-(defvar my/theme-toggle-list '(logic-dark doom-tomorrow-day)
+(defvar my/theme-toggle-list '(doom-tomorrow-night doom-tomorrow-day)
   "Themes `my/toggle-theme' alternates between.")
 
 (defun my/toggle-theme ()

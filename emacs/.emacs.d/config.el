@@ -97,10 +97,10 @@ falling back to its default \"Sans Serif\"."
   (doom-themes-org-config))
 
 ;; Load the default theme after doom-themes so its org fontification
-;; is in place; logic-dark is a plain deftheme, not a doom theme.
-(load-theme 'logic-dark t)
+;; is in place.
+(load-theme 'doom-tomorrow-night t)
 
-(defvar my/theme-toggle-list '(logic-dark doom-tomorrow-day)
+(defvar my/theme-toggle-list '(doom-tomorrow-night doom-tomorrow-day)
   "Themes `my/toggle-theme' alternates between.")
 
 (defun my/toggle-theme ()
