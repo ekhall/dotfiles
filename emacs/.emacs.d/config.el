@@ -119,34 +119,10 @@ never stack."
 (global-set-key (kbd "C-c t") #'my/toggle-theme)
 ;; Themes:1 ends here
 
-;; [[file:config.org::*Mode Line][Mode Line:1]]
-(use-package mood-line
-  :config
-  (defun mood-line-segment-prose ()
-    "Mode-line indicator shown only while `prose-mode' is active."
-    (when (bound-and-true-p prose-mode)
-      (propertize "✍ Prose" 'face 'mood-line-status-info)))
-
-  (setq mood-line-format
-        (mood-line-defformat
-         :left
-         (((mood-line-segment-modal)                  . " ")
-          ((or (mood-line-segment-buffer-status) " ") . " ")
-          ((mood-line-segment-buffer-name)            . "  ")
-          ((mood-line-segment-anzu)                   . "  ")
-          ((mood-line-segment-multiple-cursors)       . "  ")
-          ((mood-line-segment-cursor-position)        . " ")
-          (mood-line-segment-scroll))
-         :right
-         (((mood-line-segment-prose)      . "  ")
-          ((mood-line-segment-vc)         . "  ")
-          ((mood-line-segment-major-mode) . "  ")
-          ((mood-line-segment-misc-info)  . "  ")
-          ((mood-line-segment-checker)    . "  ")
-          ((mood-line-segment-process)    . "  "))))
-
-  (mood-line-mode))
-;; Mode Line:1 ends here
+;; [[file:config.org::*doom-modeline (active)][doom-modeline (active):1]]
+(use-package doom-modeline
+  :hook (emacs-startup . doom-modeline-mode))
+;; doom-modeline (active):1 ends here
 
 ;; [[file:config.org::*Custom Keybindings][Custom Keybindings:1]]
 (defun my/reload-config ()

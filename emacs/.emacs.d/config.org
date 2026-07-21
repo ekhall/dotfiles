@@ -320,7 +320,25 @@ never stack."
 
 * Mode Line
 
-A lightweight, no-dependency replacement for the default mode line.
+** doom-modeline (active)
+
+Icons + a richer mode line to match ~doom-themes~. Needs the
+[[https://github.com/rainstormstudio/nerd-icons.el][nerd-icons]] package (pulled
+in automatically as a declared dependency) and, once per machine, its actual
+font file -- run ~M-x nerd-icons-install-fonts~ once and restart Emacs, or
+icons render as tofu/boxes.
+
+#+begin_src emacs-lisp
+(use-package doom-modeline
+  :hook (emacs-startup . doom-modeline-mode))
+#+end_src
+
+** mood-line (disabled, kept for reference)
+
+A lightweight, no-dependency replacement for the default mode line -- kept
+around in case I switch back. ~:tangle no~ excludes this block from
+=config.el= entirely (nothing to load/toggle at runtime); remove it to
+re-enable, and comment out the ~doom-modeline~ block above instead.
 
 mood-line deliberately omits minor-mode lighters, so ~prose-mode~'s
 ~" Prose"~ lighter would never appear. Since that mode substantially
@@ -330,7 +348,7 @@ while ~prose-mode~ is active (and nil otherwise, so mood-line drops
 the segment and its separator entirely). It is spliced into a copy of
 the default format on the right side, just before the major mode.
 
-#+begin_src emacs-lisp
+#+begin_src emacs-lisp :tangle no
 (use-package mood-line
   :config
   (defun mood-line-segment-prose ()
