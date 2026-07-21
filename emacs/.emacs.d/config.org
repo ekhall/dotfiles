@@ -1323,9 +1323,24 @@ fill the gap between them.  Widening the frame widens the title."
   (setq elfeed-feeds
         (list (list (format "fever+https://%s@%s" my/freshrss-user my/freshrss-host)
                     :api-url (format "https://%s/api/fever.php" my/freshrss-host)
-                    :password (auth-source-pick-first-password
-                               :host my/freshrss-host
-                               :user my/freshrss-user))))
+                    ;; A function here is called fresh on every fetch
+                    ;; (`elfeed-protocol-meta-password' funcalls it) rather
+                    ;; than once at config-load time.  `auth-source' caches a
+                    ;; decrypted ~/.authinfo.gpg indefinitely within a running
+                    ;; Emacs session -- it never expires on its own -- so a
+                    ;; long-lived session (days) kept authenticating with
+                    ;; whatever password was cached at startup, failing with
+                    ;; "wrong username or password" once the stored password
+                    ;; changed, until a full restart.  Nothing else in this
+                    ;; config uses auth-source, so forcing a fresh decrypt
+                    ;; before every fetch (infrequent: manual `G' or the timer
+                    ;; above) is free of side effects and closes that gap for
+                    ;; good.
+                    :password (lambda ()
+                                (auth-source-forget-all-cached)
+                                (auth-source-pick-first-password
+                                 :host my/freshrss-host
+                                 :user my/freshrss-user)))))
   ;; Reconcile read-state from the server, in the Elfeed search buffer
   ;; (see `G' for the normal incremental fetch of new entries).
   (define-key elfeed-search-mode-map (kbd "C-c E") #'my/elfeed-freshrss-clear-read)
