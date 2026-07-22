@@ -638,7 +638,11 @@ This fetches FreshRSS's live feed -> category mapping directly (the same
 `?api&groups' endpoint elfeed-protocol-fever itself uses) and, for every
 local entry, swaps out whichever known category tag it currently carries
 for the correct one -- locally only, same pattern as
-`my/elfeed-freshrss-clear-read'. Forces a fresh auth-source decrypt first
+`my/elfeed-freshrss-clear-read'. Runs automatically after every sync via
+`elfeed-update-hook' (after `my/elfeed-dedupe-by-title', so it also cleans
+up any category drift that merge step can reintroduce -- see the comment
+on its `add-hook' call), and can still be run by hand with `C-c c'. Forces
+a fresh auth-source decrypt first
 (see the `:password' lambda above) rather than risking a stale cached
 password in a long-running session."
   (interactive)
@@ -708,6 +712,12 @@ password in a long-running session."
       (when (get-buffer "*elfeed-search*")
         (with-current-buffer "*elfeed-search*" (elfeed-search-update :force)))
       (message "FreshRSS categories: retagged %d entries" changed))))
+
+;; Run after `my/elfeed-dedupe-by-title' on every sync (APPEND so it always
+;; lands after that hook regardless of load order), cleaning up any category
+;; drift the merge step reintroduces, and picking up FreshRSS re-categorizing
+;; on its own without a manual `C-c c'.
+(add-hook 'elfeed-update-hook #'my/elfeed-freshrss-refresh-categories 90)
 
 (use-package elfeed
   :bind ("C-c e" . elfeed)

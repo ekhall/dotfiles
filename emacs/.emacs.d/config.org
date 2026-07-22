@@ -13,52 +13,52 @@ the bindings while keeping every row in one aligned grid (separate tables
 size their columns independently, so they never line up). Realign with
 ~TAB~ or ~C-c C-c~; update whenever a keybinding changes.
 
-| Section              | Key             | Command                               | Notes                                                             |
-|----------------------+-----------------+---------------------------------------+-------------------------------------------------------------------|
-| Config & session     | C-c r           | my/reload-config                      | re-tangles + reloads config.org                                   |
-|                      | C-c t           | my/toggle-theme                       | toggle doom-tomorrow-night / -day                                 |
-|----------------------+-----------------+---------------------------------------+-------------------------------------------------------------------|
-| Motion & search      | C-x b           | consult-buffer                        | enhanced switch-to-buffer                                         |
-|                      | M-g g           | consult-goto-line                     | enhanced goto-line                                                |
-|                      | M-g i           | consult-imenu                         | enhanced imenu                                                    |
-|                      | M-g w           | avy-goto-word-1                       | jump to a word                                                    |
-|                      | M-g l           | avy-goto-line                         | jump to a line                                                    |
-|                      | C-;             | avy-goto-char-timer                   | jump to chars, type until I pause                                 |
-|                      | C-:             | avy-goto-char-2                       | jump to an exact 2-char match                                     |
-|                      | M-s l           | consult-line                          | search current buffer                                             |
-|                      | M-s r           | consult-ripgrep                       | grep project (needs ripgrep)                                      |
-|----------------------+-----------------+---------------------------------------+-------------------------------------------------------------------|
-| Actions & minibuffer | C-.             | embark-act                            | contextual actions at point/candidate                             |
-|                      | C-,             | embark-dwim                           | default Embark action                                             |
-|                      | C-h B           | embark-bindings                       | list bindings via Embark                                          |
-|                      | M-A             | marginalia-cycle                      | cycle annotation style (in minibuffer)                            |
-|----------------------+-----------------+---------------------------------------+-------------------------------------------------------------------|
-| Editing              | C-x u           | vundo                                 | visual undo tree (replaces linear undo)                           |
-|                      | Caps Lock, tap  | god-mode-all                          | toggle God mode (via keyd; see Modal Editing)                     |
-|                      | Caps Lock, hold | Control                               | via keyd overload, works system-wide                              |
-|----------------------+-----------------+---------------------------------------+-------------------------------------------------------------------|
-| VC & projects        | C-x g           | magit-status                          | open Magit                                                        |
-|                      | C-c p p         | project-switch-project                | switch project (opens Magit)                                      |
-|                      | C-c p f         | project-find-file                     | find file in the current project                                  |
-|                      | C-c p b         | project-switch-to-buffer              | switch to a project buffer                                        |
-|                      | C-c p g         | project-find-regexp                   | grep the project (regexp)                                         |
-|                      | C-c p d         | project-dired                         | dired at the project root                                         |
-|----------------------+-----------------+---------------------------------------+-------------------------------------------------------------------|
-| Prose & spelling     | C-c w           | prose-mode                            | toggle distraction-free prose writing                             |
-|                      | C-c f           | my/org-fold-current-subtree           | fold section from its body (Org only)                             |
-|                      | M-$             | jinx-correct                          | correct spelling at point (replaces ispell)                       |
-|                      | C-M-$           | jinx-languages                        | switch Jinx dictionaries                                          |
-|----------------------+-----------------+---------------------------------------+-------------------------------------------------------------------|
-| Feeds (Elfeed)       | C-c e           | elfeed                                | open Elfeed (FreshRSS-synced reader)                              |
-|                      | C-c E           | my/elfeed-freshrss-clear-read         | reconcile read-state from FreshRSS (in Elfeed)                    |
-|                      | C-c c           | my/elfeed-freshrss-refresh-categories | retag existing entries with current FreshRSS category (in Elfeed) |
-|----------------------+-----------------+---------------------------------------+-------------------------------------------------------------------|
-| Web (eww)            | R               | eww-readable                          | show just the extracted article                                   |
-|                      | M-I             | eww-toggle-images                     | toggle images on / off                                            |
-|                      | W               | my/eww-open-in-xwidget                | reopen page in WebKit (xwidget)                                   |
-|                      | C-c u           | my/read-url-as-org                    | read a URL (prompted) as clean Org                                |
-|----------------------+-----------------+---------------------------------------+-------------------------------------------------------------------|
-| Org                  | C-c a           | org-agenda                            | open the agenda (todos + calendars)                               |
+| Section              | Key             | Command                               | Notes                                                           |
+|----------------------+-----------------+---------------------------------------+-----------------------------------------------------------------|
+| Config & session     | C-c r           | my/reload-config                      | re-tangles + reloads config.org                                 |
+|                      | C-c t           | my/toggle-theme                       | toggle doom-tomorrow-night / -day                               |
+|----------------------+-----------------+---------------------------------------+-----------------------------------------------------------------|
+| Motion & search      | C-x b           | consult-buffer                        | enhanced switch-to-buffer                                       |
+|                      | M-g g           | consult-goto-line                     | enhanced goto-line                                              |
+|                      | M-g i           | consult-imenu                         | enhanced imenu                                                  |
+|                      | M-g w           | avy-goto-word-1                       | jump to a word                                                  |
+|                      | M-g l           | avy-goto-line                         | jump to a line                                                  |
+|                      | C-;             | avy-goto-char-timer                   | jump to chars, type until I pause                               |
+|                      | C-:             | avy-goto-char-2                       | jump to an exact 2-char match                                   |
+|                      | M-s l           | consult-line                          | search current buffer                                           |
+|                      | M-s r           | consult-ripgrep                       | grep project (needs ripgrep)                                    |
+|----------------------+-----------------+---------------------------------------+-----------------------------------------------------------------|
+| Actions & minibuffer | C-.             | embark-act                            | contextual actions at point/candidate                           |
+|                      | C-,             | embark-dwim                           | default Embark action                                           |
+|                      | C-h B           | embark-bindings                       | list bindings via Embark                                        |
+|                      | M-A             | marginalia-cycle                      | cycle annotation style (in minibuffer)                          |
+|----------------------+-----------------+---------------------------------------+-----------------------------------------------------------------|
+| Editing              | C-x u           | vundo                                 | visual undo tree (replaces linear undo)                         |
+|                      | Caps Lock, tap  | god-mode-all                          | toggle God mode (via keyd; see Modal Editing)                   |
+|                      | Caps Lock, hold | Control                               | via keyd overload, works system-wide                            |
+|----------------------+-----------------+---------------------------------------+-----------------------------------------------------------------|
+| VC & projects        | C-x g           | magit-status                          | open Magit                                                      |
+|                      | C-c p p         | project-switch-project                | switch project (opens Magit)                                    |
+|                      | C-c p f         | project-find-file                     | find file in the current project                                |
+|                      | C-c p b         | project-switch-to-buffer              | switch to a project buffer                                      |
+|                      | C-c p g         | project-find-regexp                   | grep the project (regexp)                                       |
+|                      | C-c p d         | project-dired                         | dired at the project root                                       |
+|----------------------+-----------------+---------------------------------------+-----------------------------------------------------------------|
+| Prose & spelling     | C-c w           | prose-mode                            | toggle distraction-free prose writing                           |
+|                      | C-c f           | my/org-fold-current-subtree           | fold section from its body (Org only)                           |
+|                      | M-$             | jinx-correct                          | correct spelling at point (replaces ispell)                     |
+|                      | C-M-$           | jinx-languages                        | switch Jinx dictionaries                                        |
+|----------------------+-----------------+---------------------------------------+-----------------------------------------------------------------|
+| Feeds (Elfeed)       | C-c e           | elfeed                                | open Elfeed (FreshRSS-synced reader)                            |
+|                      | C-c E           | my/elfeed-freshrss-clear-read         | reconcile read-state from FreshRSS (in Elfeed)                  |
+|                      | C-c c           | my/elfeed-freshrss-refresh-categories | force a category retag now (also runs automatically after sync) |
+|----------------------+-----------------+---------------------------------------+-----------------------------------------------------------------|
+| Web (eww)            | R               | eww-readable                          | show just the extracted article                                 |
+|                      | M-I             | eww-toggle-images                     | toggle images on / off                                          |
+|                      | W               | my/eww-open-in-xwidget                | reopen page in WebKit (xwidget)                                 |
+|                      | C-c u           | my/read-url-as-org                    | read a URL (prompted) as clean Org                              |
+|----------------------+-----------------+---------------------------------------+-----------------------------------------------------------------|
+| Org                  | C-c a           | org-agenda                            | open the agenda (todos + calendars)                             |
 
 * Introduction
 
@@ -1385,7 +1385,11 @@ This fetches FreshRSS's live feed -> category mapping directly (the same
 `?api&groups' endpoint elfeed-protocol-fever itself uses) and, for every
 local entry, swaps out whichever known category tag it currently carries
 for the correct one -- locally only, same pattern as
-`my/elfeed-freshrss-clear-read'. Forces a fresh auth-source decrypt first
+`my/elfeed-freshrss-clear-read'. Runs automatically after every sync via
+`elfeed-update-hook' (after `my/elfeed-dedupe-by-title', so it also cleans
+up any category drift that merge step can reintroduce -- see the comment
+on its `add-hook' call), and can still be run by hand with `C-c c'. Forces
+a fresh auth-source decrypt first
 (see the `:password' lambda above) rather than risking a stale cached
 password in a long-running session."
   (interactive)
@@ -1455,6 +1459,12 @@ password in a long-running session."
       (when (get-buffer "*elfeed-search*")
         (with-current-buffer "*elfeed-search*" (elfeed-search-update :force)))
       (message "FreshRSS categories: retagged %d entries" changed))))
+
+;; Run after `my/elfeed-dedupe-by-title' on every sync (APPEND so it always
+;; lands after that hook regardless of load order), cleaning up any category
+;; drift the merge step reintroduces, and picking up FreshRSS re-categorizing
+;; on its own without a manual `C-c c'.
+(add-hook 'elfeed-update-hook #'my/elfeed-freshrss-refresh-categories 90)
 
 (use-package elfeed
   :bind ("C-c e" . elfeed)
