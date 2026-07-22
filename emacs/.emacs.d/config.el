@@ -665,77 +665,96 @@ up any category drift that merge step can reintroduce -- see the comment
 on its `add-hook' call), and can still be run by hand with `C-c c'. Forces
 a fresh auth-source decrypt first
 (see the `:password' lambda above) rather than risking a stale cached
-password in a long-running session."
+password in a long-running session.
+
+Runs automatically and unsupervised (no human watching for a failure to
+retry), so any error here -- a network hiccup, a timed-out request, an
+unexpected response -- is caught and logged to `*elfeed-log*'
+(`M-x elfeed-log-show') instead of propagating as an unhandled error.  An
+unhandled error inside a timer callback (which is what runs this after a
+deferred hook fire) is exactly what produces an auto-popping, easy-to-miss
+`*Backtrace*' window -- this replaces that with the same quiet failure
+handling elfeed itself uses for its own Fever errors."
   (interactive)
-  (let* ((host my/freshrss-host) (user my/freshrss-user)
-         (pw (progn (auth-source-forget-all-cached)
-                    (auth-source-pick-first-password :host host :user user)))
-         (key (md5 (concat user ":" pw)))
-         (url (format "https://%s/api/fever.php?api&groups" host))
-         (url-request-method "POST")
-         (url-request-extra-headers
-          '(("Content-Type" . "application/x-www-form-urlencoded")))
-         (url-request-data (concat "api_key=" key))
-         ;; Fever feed-id -> category name.
-         (feed-category (make-hash-table :test 'eql)))
-    ;; Every category name currently in use, as interned tag symbols --
-    ;; anything in this set on an entry is a category tag eligible for
-    ;; replacement (and for a color, see `my/elfeed-category-color');
-    ;; anything else (unread, starred, user tags) is left alone.  This is
-    ;; the persistent, shared table (not a local one) so
-    ;; `my/elfeed-search-print-entry' can also consult it; clear it first
-    ;; so a category removed server-side stops being treated as one.
-    (clrhash my/elfeed-known-categories)
-    (with-current-buffer (url-retrieve-synchronously url t t 30)
-      (goto-char (point-min))
-      (re-search-forward "\n\n" nil t)
-      (let* ((json (json-parse-buffer :object-type 'alist :array-type 'list))
-             (groups (alist-get 'groups json))
-             (feeds_groups (alist-get 'feeds_groups json))
-             (group-title (make-hash-table :test 'eql)))
-        (unless (eql 1 (alist-get 'auth json))
-          (user-error "FreshRSS Fever auth failed"))
-        (dolist (g groups)
-          (let ((title (alist-get 'title g)))
-            (puthash (alist-get 'id g) title group-title)
-            (puthash (intern title) t my/elfeed-known-categories)))
-        (dolist (fg feeds_groups)
-          (let ((title (gethash (alist-get 'group_id fg) group-title)))
-            (when title
-              (dolist (fid (split-string (alist-get 'feed_ids fg) "," t))
-                (puthash (string-to-number fid) title feed-category)))))))
-    (let ((changed 0)
-          ;; Local-only, same reasoning as `my/elfeed-freshrss-clear-read':
-          ;; category tags aren't unread/star, so the pre-tag/pre-untag
-          ;; hooks would no-op regardless, but binding nil skips the
-          ;; dispatch entirely for this bulk walk.
-          (elfeed-tag-hook nil)
-          (elfeed-untag-hook nil))
-      (with-elfeed-db-visit (entry _feed)
-        (let* ((feed-id (elfeed-meta entry :feed-id))
-               (correct (and feed-id (gethash feed-id feed-category)))
-               (correct-tag (and correct (intern correct)))
-               touched)
-          (when correct-tag
-            ;; Always strip any *other* known-category tag, even if
-            ;; correct-tag is already present -- e.g. after
-            ;; `my/elfeed-dedupe-by-title' merges a stale-tagged duplicate
-            ;; into a survivor that already has the right tag, both can
-            ;; end up set at once.  Skipping this loop just because the
-            ;; correct tag is already there (the first version of this
-            ;; function did) left that combination un-healed forever.
-            (dolist (tag (elfeed-entry-tags entry))
-              (when (and (not (eq tag correct-tag)) (gethash tag my/elfeed-known-categories))
-                (elfeed-untag entry tag)
-                (setq touched t)))
-            (unless (elfeed-tagged-p correct-tag entry)
-              (elfeed-tag entry correct-tag)
-              (setq touched t))
-            (when touched (setq changed (1+ changed))))))
-      (elfeed-db-save)
-      (when (get-buffer "*elfeed-search*")
-        (with-current-buffer "*elfeed-search*" (elfeed-search-update :force)))
-      (message "FreshRSS categories: retagged %d entries" changed))))
+  (condition-case err
+      (let* ((host my/freshrss-host) (user my/freshrss-user)
+             (pw (progn (auth-source-forget-all-cached)
+                        (auth-source-pick-first-password :host host :user user)))
+             (key (md5 (concat user ":" pw)))
+             (url (format "https://%s/api/fever.php?api&groups" host))
+             (url-request-method "POST")
+             (url-request-extra-headers
+              '(("Content-Type" . "application/x-www-form-urlencoded")))
+             (url-request-data (concat "api_key=" key))
+             ;; Fever feed-id -> category name.
+             (feed-category (make-hash-table :test 'eql))
+             (response-buffer (url-retrieve-synchronously url t t 30)))
+        (unless response-buffer
+          (error "No response from %s (network failure or timeout)" host))
+        ;; Every category name currently in use, as interned tag symbols --
+        ;; anything in this set on an entry is a category tag eligible for
+        ;; replacement (and for a color, see `my/elfeed-category-color');
+        ;; anything else (unread, starred, user tags) is left alone.  This is
+        ;; the persistent, shared table (not a local one) so
+        ;; `my/elfeed-search-print-entry' can also consult it; clear it first
+        ;; so a category removed server-side stops being treated as one.
+        (clrhash my/elfeed-known-categories)
+        (with-current-buffer response-buffer
+          (goto-char (point-min))
+          (unless (re-search-forward "\n\n" nil t)
+            (error "Malformed HTTP response from %s" host))
+          (let* ((json (json-parse-buffer :object-type 'alist :array-type 'list))
+                 (groups (alist-get 'groups json))
+                 (feeds_groups (alist-get 'feeds_groups json))
+                 (group-title (make-hash-table :test 'eql)))
+            (unless (eql 1 (alist-get 'auth json))
+              (error "FreshRSS Fever auth failed"))
+            (dolist (g groups)
+              (let ((title (alist-get 'title g)))
+                (puthash (alist-get 'id g) title group-title)
+                (puthash (intern title) t my/elfeed-known-categories)))
+            (dolist (fg feeds_groups)
+              (let ((title (gethash (alist-get 'group_id fg) group-title)))
+                (when title
+                  (dolist (fid (split-string (alist-get 'feed_ids fg) "," t))
+                    (puthash (string-to-number fid) title feed-category)))))))
+        (let ((changed 0)
+              ;; Local-only, same reasoning as `my/elfeed-freshrss-clear-read':
+              ;; category tags aren't unread/star, so the pre-tag/pre-untag
+              ;; hooks would no-op regardless, but binding nil skips the
+              ;; dispatch entirely for this bulk walk.
+              (elfeed-tag-hook nil)
+              (elfeed-untag-hook nil))
+          (with-elfeed-db-visit (entry _feed)
+            (let* ((feed-id (elfeed-meta entry :feed-id))
+                   (correct (and feed-id (gethash feed-id feed-category)))
+                   (correct-tag (and correct (intern correct)))
+                   touched)
+              (when correct-tag
+                ;; Always strip any *other* known-category tag, even if
+                ;; correct-tag is already present -- e.g. after
+                ;; `my/elfeed-dedupe-by-title' merges a stale-tagged duplicate
+                ;; into a survivor that already has the right tag, both can
+                ;; end up set at once.  Skipping this loop just because the
+                ;; correct tag is already there (the first version of this
+                ;; function did) left that combination un-healed forever.
+                (dolist (tag (elfeed-entry-tags entry))
+                  (when (and (not (eq tag correct-tag)) (gethash tag my/elfeed-known-categories))
+                    (elfeed-untag entry tag)
+                    (setq touched t)))
+                (unless (elfeed-tagged-p correct-tag entry)
+                  (elfeed-tag entry correct-tag)
+                  (setq touched t))
+                (when touched (setq changed (1+ changed))))))
+          (elfeed-db-save)
+          (when (get-buffer "*elfeed-search*")
+            (with-current-buffer "*elfeed-search*" (elfeed-search-update :force)))
+          (message "FreshRSS categories: retagged %d entries" changed)))
+    (error
+     (elfeed-log 'error "my/elfeed-freshrss-refresh-categories: %s" (error-message-string err))
+     (when (called-interactively-p 'any)
+       (message "FreshRSS categories: failed (%s) -- see *elfeed-log*"
+                (error-message-string err))))))
 
 ;; Run after `my/elfeed-dedupe-by-title' on every sync (depth 90, so it always
 ;; lands after that hook regardless of load order), cleaning up any category
