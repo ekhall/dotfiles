@@ -1306,6 +1306,27 @@ Resolves to the Caddy host on the LAN, and over Tailscale when away.")
 (defconst my/freshrss-user "hall"
   "FreshRSS account name, used for the Fever URL and auth-source lookup.")
 
+(defvar my/elfeed-known-categories (make-hash-table :test 'eq)
+  "FreshRSS category tags (interned symbols) currently known.
+Populated by `my/elfeed-freshrss-refresh-categories'.
+`my/elfeed-search-print-entry' consults this to decide which tags get a
+category color -- `unread' and any other non-category tag are left with
+the default face.  A plain `defvar' (not `defconst'): this is accumulated
+state refreshed by a sync, not a config value that should reset on `C-c
+r' -- the categories fetched by the last sync should survive a reload.")
+
+(defun my/elfeed-category-color (name)
+  "Return a stable hex color for category NAME (a string or symbol).
+Hashes NAME to a hue (0-359 degrees) with `sxhash-equal' -- deterministic,
+so the same category name always gets the same color across restarts and
+machines, with nothing to store or hand-pick as categories are added.
+Saturation and lightness are fixed so every generated color stays legible
+against both light and dark themes; only the hue varies."
+  (require 'color)
+  (let* ((name (if (symbolp name) (symbol-name name) name))
+         (hue (/ (mod (abs (sxhash-equal name)) 360) 360.0)))
+    (apply #'color-rgb-to-hex (append (color-hsl-to-rgb hue 0.55 0.65) '(2)))))
+
 (defun my/elfeed-freshrss-clear-read ()
   "Mirror FreshRSS read/unread state onto already-downloaded Elfeed entries.
 elfeed-protocol's Fever sync only applies read-state to entries it
@@ -1403,12 +1424,15 @@ password in a long-running session."
           '(("Content-Type" . "application/x-www-form-urlencoded")))
          (url-request-data (concat "api_key=" key))
          ;; Fever feed-id -> category name.
-         (feed-category (make-hash-table :test 'eql))
-         ;; Every category name currently in use, as interned tag symbols --
-         ;; anything in this set on an entry is a category tag eligible for
-         ;; replacement; anything else (unread, starred, user tags) is left
-         ;; alone.
-         (known-tags (make-hash-table :test 'eq)))
+         (feed-category (make-hash-table :test 'eql)))
+    ;; Every category name currently in use, as interned tag symbols --
+    ;; anything in this set on an entry is a category tag eligible for
+    ;; replacement (and for a color, see `my/elfeed-category-color');
+    ;; anything else (unread, starred, user tags) is left alone.  This is
+    ;; the persistent, shared table (not a local one) so
+    ;; `my/elfeed-search-print-entry' can also consult it; clear it first
+    ;; so a category removed server-side stops being treated as one.
+    (clrhash my/elfeed-known-categories)
     (with-current-buffer (url-retrieve-synchronously url t t 30)
       (goto-char (point-min))
       (re-search-forward "\n\n" nil t)
@@ -1421,7 +1445,7 @@ password in a long-running session."
         (dolist (g groups)
           (let ((title (alist-get 'title g)))
             (puthash (alist-get 'id g) title group-title)
-            (puthash (intern title) t known-tags)))
+            (puthash (intern title) t my/elfeed-known-categories)))
         (dolist (fg feeds_groups)
           (let ((title (gethash (alist-get 'group_id fg) group-title)))
             (when title
@@ -1448,7 +1472,7 @@ password in a long-running session."
             ;; correct tag is already there (the first version of this
             ;; function did) left that combination un-healed forever.
             (dolist (tag (elfeed-entry-tags entry))
-              (when (and (not (eq tag correct-tag)) (gethash tag known-tags))
+              (when (and (not (eq tag correct-tag)) (gethash tag my/elfeed-known-categories))
                 (elfeed-untag entry tag)
                 (setq touched t)))
             (unless (elfeed-tagged-p correct-tag entry)
@@ -1474,16 +1498,26 @@ password in a long-running session."
     "Print ENTRY like the elfeed default, but right-align feed+tags.
 The date and title stay on the left; the feed name and tag list are
 pinned to the window's right edge, and the title column expands to
-fill the gap between them.  Widening the frame widens the title."
+fill the gap between them.  Widening the frame widens the title.
+
+Category tags (per `my/elfeed-known-categories') get their own stable
+color from `my/elfeed-category-color'; any other tag (`unread', ...)
+keeps the plain `elfeed-search-tag-face'."
     (let* ((date  (elfeed-search-format-date (elfeed-entry-date entry)))
            (title (or (elfeed-meta entry :title) (elfeed-entry-title entry) ""))
            (title-faces (elfeed-search--faces (elfeed-entry-tags entry)))
            (feed  (elfeed-entry-feed entry))
            (feed-title (when feed (or (elfeed-meta feed :title)
                                       (elfeed-feed-title feed))))
-           (tags  (mapcar #'symbol-name (elfeed-entry-tags entry)))
+           (tags  (elfeed-entry-tags entry))
            (tags-str (concat "(" (mapconcat
-                                  (lambda (s) (propertize s 'face 'elfeed-search-tag-face))
+                                  (lambda (tag)
+                                    (if (gethash tag my/elfeed-known-categories)
+                                        (propertize (symbol-name tag)
+                                                    'face (list :foreground
+                                                                (my/elfeed-category-color tag)))
+                                      (propertize (symbol-name tag)
+                                                  'face 'elfeed-search-tag-face)))
                                   tags ",")
                              ")"))
            (right (concat (when feed-title
