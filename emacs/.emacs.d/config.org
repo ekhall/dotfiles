@@ -1484,11 +1484,24 @@ password in a long-running session."
         (with-current-buffer "*elfeed-search*" (elfeed-search-update :force)))
       (message "FreshRSS categories: retagged %d entries" changed))))
 
-;; Run after `my/elfeed-dedupe-by-title' on every sync (APPEND so it always
+;; Run after `my/elfeed-dedupe-by-title' on every sync (depth 90, so it always
 ;; lands after that hook regardless of load order), cleaning up any category
 ;; drift the merge step reintroduces, and picking up FreshRSS re-categorizing
 ;; on its own without a manual `C-c c'.
-(add-hook 'elfeed-update-hook #'my/elfeed-freshrss-refresh-categories 90)
+;;
+;; `elfeed-update-hook' fires from inside elfeed-curl's process sentinel --
+;; an async callback.  Unlike `my/elfeed-dedupe-by-title' (pure local
+;; database work), this function makes a *blocking* network call
+;; (`url-retrieve-synchronously'), and nesting that directly inside a
+;; process-sentinel callback is a known-bad pattern: an error there
+;; doesn't just print a message, it pops a `*Backtrace*' window (Emacs's
+;; standard handling for unhandled errors in timers/sentinels) that stays
+;; open until closed by hand.  `run-at-time 0 nil ...' defers the actual
+;; call to the next event-loop tick, off the sentinel's call stack
+;; entirely, while still running immediately after the sync completes.
+(add-hook 'elfeed-update-hook
+          (lambda (&rest _) (run-at-time 0 nil #'my/elfeed-freshrss-refresh-categories))
+          90)
 
 (use-package elfeed
   :bind ("C-c e" . elfeed)
