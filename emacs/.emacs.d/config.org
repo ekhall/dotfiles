@@ -1453,6 +1453,66 @@ fill the gap between them.  Widening the frame widens the title."
   (elfeed-protocol-enable))
 #+end_src
 
+** Duplicate entries from unstable guids (e.g. Stratechery)
+
+Elfeed dedupes articles by each item's ~<guid>~ (falling back to its link),
+so a feed whose guid isn't stable across fetches produces a fresh "new"
+Elfeed entry for the *same* article every time. Stratechery hits this hard:
+it's proxied through =passport.online= (a subscription-auth gateway) whose
+feed embeds a short-lived, periodically-reissued access token *directly in
+the article link*, which is also what ends up as the guid. Confirmed by
+comparing two "duplicate" entries for the same article: identical title and
+underlying =stratechery.com/?p=19180= URL, but the token's issued-at claim
+was ~25 hours apart -- so the guid, and therefore Elfeed's dedup key,
+genuinely changed between two ordinary polls of the exact same article.
+Nothing on this end (Elfeed, elfeed-protocol, or FreshRSS config) causes or
+can prevent this; it is the upstream feed's own guid hygiene.
+
+~my/elfeed-dedupe-by-title~ mops this up after the fact: group entries by
+(feed . title), and where a group has more than one, keep only the most
+recently dated copy (its access-token link is the one still valid) and merge
+the others' tags onto it first, so an already-read older copy doesn't
+resurrect that article as unread. It runs automatically after every sync via
+~elfeed-update-hook~, and can also be run by hand.
+
+#+begin_src emacs-lisp
+(defun my/elfeed-dedupe-by-title (&optional _url)
+  "Merge duplicate Elfeed entries sharing a feed and title, keeping the newest.
+Also runs from `elfeed-update-hook', which passes the just-synced feed URL
+as _URL; unused here since the whole database is rescanned regardless."
+  (interactive)
+  (let ((groups (make-hash-table :test 'equal))
+        (removed 0))
+    ;; Bucket every entry by (feed . title) -- these are the "same article,
+    ;; different guid" groups we're hunting for.
+    (with-elfeed-db-visit (entry feed)
+      (push entry (gethash (cons (elfeed-feed-id feed) (elfeed-entry-title entry))
+                            groups)))
+    (maphash
+     (lambda (_key entries)
+       (when (> (length entries) 1)
+         (let* ((newest-first (sort entries
+                                    (lambda (a b) (> (elfeed-entry-date a)
+                                                      (elfeed-entry-date b)))))
+                (keep (car newest-first))
+                (dupes (cdr newest-first)))
+           ;; Carry over tags (e.g. `unread'/`starred') from the copies being
+           ;; removed, so deleting them can't silently lose read-state.
+           (dolist (dupe dupes)
+             (apply #'elfeed-tag keep (elfeed-entry-tags dupe)))
+           (elfeed-db-delete dupes)
+           (setq removed (+ removed (length dupes))))))
+     groups)
+    (elfeed-db-save)
+    (when (get-buffer "*elfeed-search*")
+      (with-current-buffer "*elfeed-search*" (elfeed-search-update :force)))
+    (when (called-interactively-p 'any)
+      (message "Elfeed: merged %d duplicate entr%s" removed (if (= removed 1) "y" "ies")))
+    removed))
+
+(add-hook 'elfeed-update-hook #'my/elfeed-dedupe-by-title)
+#+end_src
+
 * Web Browsing (eww)
 
 ~eww~ renders HTML with ~shr~, no JavaScript. It will never match a real

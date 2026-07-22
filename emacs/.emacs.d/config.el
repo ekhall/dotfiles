@@ -707,6 +707,44 @@ fill the gap between them.  Widening the frame widens the title."
   (elfeed-protocol-enable))
 ;; Configuration:1 ends here
 
+;; [[file:config.org::*Duplicate entries from unstable guids (e.g. Stratechery)][Duplicate entries from unstable guids (e.g. Stratechery):1]]
+(defun my/elfeed-dedupe-by-title (&optional _url)
+  "Merge duplicate Elfeed entries sharing a feed and title, keeping the newest.
+Also runs from `elfeed-update-hook', which passes the just-synced feed URL
+as _URL; unused here since the whole database is rescanned regardless."
+  (interactive)
+  (let ((groups (make-hash-table :test 'equal))
+        (removed 0))
+    ;; Bucket every entry by (feed . title) -- these are the "same article,
+    ;; different guid" groups we're hunting for.
+    (with-elfeed-db-visit (entry feed)
+      (push entry (gethash (cons (elfeed-feed-id feed) (elfeed-entry-title entry))
+                            groups)))
+    (maphash
+     (lambda (_key entries)
+       (when (> (length entries) 1)
+         (let* ((newest-first (sort entries
+                                    (lambda (a b) (> (elfeed-entry-date a)
+                                                      (elfeed-entry-date b)))))
+                (keep (car newest-first))
+                (dupes (cdr newest-first)))
+           ;; Carry over tags (e.g. `unread'/`starred') from the copies being
+           ;; removed, so deleting them can't silently lose read-state.
+           (dolist (dupe dupes)
+             (apply #'elfeed-tag keep (elfeed-entry-tags dupe)))
+           (elfeed-db-delete dupes)
+           (setq removed (+ removed (length dupes))))))
+     groups)
+    (elfeed-db-save)
+    (when (get-buffer "*elfeed-search*")
+      (with-current-buffer "*elfeed-search*" (elfeed-search-update :force)))
+    (when (called-interactively-p 'any)
+      (message "Elfeed: merged %d duplicate entr%s" removed (if (= removed 1) "y" "ies")))
+    removed))
+
+(add-hook 'elfeed-update-hook #'my/elfeed-dedupe-by-title)
+;; Duplicate entries from unstable guids (e.g. Stratechery):1 ends here
+
 ;; [[file:config.org::*Web Browsing (eww)][Web Browsing (eww):1]]
 (use-package shr
   :ensure nil
