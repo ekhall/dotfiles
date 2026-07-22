@@ -14,7 +14,14 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(package-selected-packages nil))
+ '(package-selected-packages
+   '(adwaita-dark-theme avy calibredb cape corfu doom-modeline
+			doom-themes elfeed-protocol embark-consult
+			exec-path-from-shell god-mode jinx magit
+			marginalia mixed-pitch mood-line notmuch nov
+			olivetti orderless org-modern org-web-tools
+			rainbow-delimiters shrface vertico vundo
+			wallabag)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.

@@ -568,10 +568,16 @@ another device keep a stale `unread' tag here, and
 
 This fetches the Fever `unread_item_ids' set directly and, for
 every local entry carrying a Fever id, adds or removes the
-`unread' tag to match the server -- locally only, via
-`elfeed-tag-1'/`elfeed-untag-1', so nothing is pushed back.  The
-Fever api_key is md5(user:password); the password comes from
-auth-source, never from this file."
+`unread' tag to match the server -- locally only, so nothing is
+pushed back.  The Fever api_key is md5(user:password); the
+password comes from auth-source, never from this file.
+
+Local-only is enforced by binding `elfeed-tag-hook' and
+`elfeed-untag-hook' to nil around the walk, NOT by the choice of
+tagging function: `elfeed-tag-1'/`elfeed-untag-1' were the
+hook-free primitives when this was written, but elfeed 4.0.0 made
+them obsolete aliases for `elfeed-tag'/`elfeed-untag', which do
+run the hooks."
   (interactive)
   (let* ((host my/freshrss-host) (user my/freshrss-user)
          (pw (auth-source-pick-first-password :host host :user user))
@@ -591,15 +597,25 @@ auth-source, never from this file."
           (user-error "FreshRSS Fever auth failed"))
         (dolist (id (split-string (or ids "") "," t))
           (puthash (string-to-number id) t unread-set))))
-    (let ((cleared 0) (marked 0))
+    (let ((cleared 0) (marked 0)
+          ;; Keep the walk local.  elfeed-protocol hangs
+          ;; `elfeed-protocol-on-tag-remove' on `elfeed-untag-hook', so
+          ;; each untag here would POST "mark as read" back to FreshRSS --
+          ;; pointless (we are mirroring the server's own state) and
+          ;; actively fatal: entries whose proto-id is no longer in
+          ;; `elfeed-feeds' (e.g. left over from an earlier feed URL)
+          ;; resolve to a nil host-url, and `elfeed-protocol-meta-user'
+          ;; then dies in `split-string' with "stringp nil".
+          (elfeed-tag-hook nil)
+          (elfeed-untag-hook nil))
       (with-elfeed-db-visit (entry _feed)
         (let ((id (elfeed-meta entry :id)))
           (when id
             (if (gethash id unread-set)
                 (unless (elfeed-tagged-p 'unread entry)
-                  (elfeed-tag-1 entry 'unread) (setq marked (1+ marked)))
+                  (elfeed-tag entry 'unread) (setq marked (1+ marked)))
               (when (elfeed-tagged-p 'unread entry)
-                (elfeed-untag-1 entry 'unread) (setq cleared (1+ cleared)))))))
+                (elfeed-untag entry 'unread) (setq cleared (1+ cleared)))))))
       (elfeed-db-save)
       (when (get-buffer "*elfeed-search*")
         (with-current-buffer "*elfeed-search*" (elfeed-search-update :force)))
