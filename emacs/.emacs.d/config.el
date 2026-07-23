@@ -643,6 +643,54 @@ run the hooks."
       (message "FreshRSS reconcile: cleared %d read, marked %d unread; %d unread on server"
                cleared marked (hash-table-count unread-set)))))
 
+(defun my/elfeed-purge-dead-protocol-entries ()
+  "Delete Elfeed entries and feeds orphaned by a changed protocol URL.
+elfeed-protocol stamps every entry with a `:protocol-id' naming the
+server it came from (e.g. `fever+https://user@host').  Change that URL
+-- a new hostname, or http->https -- and the entries and feed objects
+fetched under the *old* proto-id linger in the database forever: they
+render as duplicate rows, and opening one dies in
+`elfeed-protocol-meta-user' because the stale proto-id no longer maps
+to a configured host.  (This database once held ~123 entries under an
+old `fever+http://hall@100.121.73.82' Tailscale-IP address.)
+
+This removes every entry and every feed whose proto-id is not among the
+currently-configured `elfeed-feeds'.  It reports the counts and asks
+before deleting.  Run it after changing the FreshRSS URL; it is a
+harmless no-op when nothing is stale.  Only protocol feeds (a `scheme+'
+url) are ever considered, so a plain-RSS feed is never touched."
+  (interactive)
+  (elfeed-db-ensure)
+  (let* ((proto-of (lambda (url) (car (split-string url "::"))))
+         (live (delete-dups
+                (mapcar (lambda (f) (funcall proto-of (if (listp f) (car f) f)))
+                        elfeed-feeds)))
+         (dead-entries '()) (dead-unread 0) (dead-feeds '()))
+    (maphash (lambda (_id e)
+               (let ((pid (elfeed-meta e :protocol-id)))
+                 (when (and pid (not (member pid live)))
+                   (push e dead-entries)
+                   (when (memq 'unread (elfeed-entry-tags e))
+                     (setq dead-unread (1+ dead-unread))))))
+             elfeed-db-entries)
+    (maphash (lambda (url _f)
+               (when (and (string-match-p "\\`[a-z]+\\+" url)
+                          (not (member (funcall proto-of url) live)))
+                 (push url dead-feeds)))
+             elfeed-db-feeds)
+    (if (and (null dead-entries) (null dead-feeds))
+        (message "Elfeed: no dead-protocol entries or feeds; nothing to purge")
+      (when (yes-or-no-p
+             (format "Delete %d dead entries (%d unread) and %d dead feeds? "
+                     (length dead-entries) dead-unread (length dead-feeds)))
+        (elfeed-db-delete dead-entries)
+        (dolist (url dead-feeds) (remhash url elfeed-db-feeds))
+        (elfeed-db-save)
+        (when (get-buffer "*elfeed-search*")
+          (with-current-buffer "*elfeed-search*" (elfeed-search-update :force)))
+        (message "Elfeed: purged %d entries and %d dead feeds"
+                 (length dead-entries) (length dead-feeds))))))
+
 (defun my/elfeed-freshrss-refresh-categories ()
   "Retag already-downloaded entries with their *current* FreshRSS category.
 elfeed-protocol computes an entry's category tag only once, at the moment
