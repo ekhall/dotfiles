@@ -643,6 +643,31 @@ run the hooks."
       (message "FreshRSS reconcile: cleared %d read, marked %d unread; %d unread on server"
                cleared marked (hash-table-count unread-set)))))
 
+;; Run the read-state reconcile automatically after every sync.  A plain
+;; `G' (unread-only Fever sync) only *imports* the server's currently-unread
+;; ids; it never clears the `unread' tag from entries read on another device
+;; -- those just drop out of the fetched set and elfeed never revisits them.
+;; So without this, reading on the phone never propagates here.
+;; `elfeed-update-hook' fires from inside elfeed-curl's process sentinel and
+;; can fire several times per `G' (once per id chunk), so debounce onto a
+;; short timer: the fires collapse into a single reconcile that runs just
+;; after the sync's own DB writes settle, off the sentinel.  Manual `C-c E'
+;; still works for the rare case where the server's unread set is empty (then
+;; `G' fetches nothing and this hook never fires).
+(defvar my/elfeed-reconcile-timer nil
+  "Debounce timer coalescing post-sync `my/elfeed-freshrss-clear-read' runs.")
+
+(defun my/elfeed-freshrss-reconcile-after-sync (&rest _)
+  "Schedule one read-state reconcile shortly after a sync settles.
+Added to `elfeed-update-hook'; debounced via `my/elfeed-reconcile-timer'
+so the several per-sync hook fires trigger only a single reconcile."
+  (when (timerp my/elfeed-reconcile-timer)
+    (cancel-timer my/elfeed-reconcile-timer))
+  (setq my/elfeed-reconcile-timer
+        (run-at-time 2 nil #'my/elfeed-freshrss-clear-read)))
+
+(add-hook 'elfeed-update-hook #'my/elfeed-freshrss-reconcile-after-sync)
+
 (defun my/elfeed-purge-dead-protocol-entries ()
   "Delete Elfeed entries and feeds orphaned by a changed protocol URL.
 elfeed-protocol stamps every entry with a `:protocol-id' naming the
