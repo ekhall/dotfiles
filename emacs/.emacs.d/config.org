@@ -173,6 +173,25 @@ followed by ~RET~ -- the modern replacement for the old
        (add-to-list 'default-frame-alist '(height . 45))))
 #+end_src
 
+** Quiet async native-compilation warnings
+
+Emacs 30 natively compiles installed packages *asynchronously in the
+background*, lazily, the first time their files load after an install or
+update. The compiler emits a "function X is not known to be defined"
+warning for every cross-file forward reference it encounters -- routine
+in any multi-file package (CIDER alone produces dozens) and harmless:
+they are notes about compilation-unit ordering, not problems in the
+package or in this config. By default each one pops the =*Warnings*=
+buffer, burying whatever you were doing under noise every time a package
+is installed or updated. ~'silent~ keeps the full log (see
+~M-x native-comp-limple-mode~ / the =*Async-Native-Compile-Log*= buffer)
+but stops the pop-up. Real *errors* in this config still surface
+normally -- this only affects the background compiler's reports.
+
+#+begin_src emacs-lisp
+(setq native-comp-async-report-warnings-errors 'silent)
+#+end_src
+
 ** Smooth scrolling through tall images
 
 Line-based scrolling treats an image as a single tall "line": if it is

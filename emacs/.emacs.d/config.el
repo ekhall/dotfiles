@@ -32,6 +32,10 @@
        (add-to-list 'default-frame-alist '(height . 45))))
 ;; Basic UI and Startup Behavior:1 ends here
 
+;; [[file:config.org::*Quiet async native-compilation warnings][Quiet async native-compilation warnings:1]]
+(setq native-comp-async-report-warnings-errors 'silent)
+;; Quiet async native-compilation warnings:1 ends here
+
 ;; [[file:config.org::*Smooth scrolling through tall images][Smooth scrolling through tall images:1]]
 (pixel-scroll-precision-mode 1)
 ;; Smooth scrolling through tall images:1 ends here
