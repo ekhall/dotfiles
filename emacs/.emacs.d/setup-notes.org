@@ -803,6 +803,48 @@ required/available per [[*1. Install packages]]). It compiles to
 in the repo). To force a rebuild (e.g. after a tree-sitter ABI change),
 delete that directory and reload =config.org=.
 
+* Clojure (clojure-ts-mode + CIDER + eglot)
+
+Everything Emacs-side travels in =config.org=
+(see [[file:config.org::*Clojure][config.org: Clojure]] for how
+~clojure-ts-mode~ / CIDER / ~clojure-lsp~ divide the work). Per machine, two
+external binaries need installing; a third is optional.
+
+** Install the Clojure toolchain (macOS, Homebrew)
+
+: brew install clojure/tools/clojure
+: brew install clojure-lsp/brew/clojure-lsp-native
+: brew install borkdude/brew/babashka        # optional: fast scripting (bb)
+
+- =clojure= -- the official Clojure CLI (~clj~ / ~clojure~). This is what
+  CIDER's ~cider-jack-in-clj~ shells out to; it pulls in a JVM (=openjdk=)
+  as a Homebrew dependency automatically.
+- =clojure-lsp-native= -- the language server eglot starts (static
+  analysis + clj-kondo diagnostics; no REPL needed). Must be on =PATH=
+  for GUI Emacs, which it is via Homebrew + exec-path-from-shell
+  (see [[file:config.org::*Inherit the shell PATH (macOS)][config.org]]).
+
+Linux: =clojure= and =clojure-lsp= from the distro repos (Arch:
+~pacman -S clojure clojure-lsp~), or the official install scripts.
+
+Verify (first run resolves deps over the network, so it's slow once):
+
+: clj -M -e '(println "ok")'
+
+** Tree-sitter grammar (built automatically)
+
+Even more hands-off than Rust: ~clojure-ts-mode~ fetches and compiles its
+own grammar on first use (needs Git + a C compiler, already required per
+[[*1. Install packages]]); nothing to run by hand, and no recipe stanza in
+=config.org= either. Compiles into the same gitignored
+=~/.emacs.d/tree-sitter/=.
+
+** First jack-in is slow (once)
+
+The first ~C-c C-x j j~ in a project downloads CIDER's injected nREPL
+dependencies through the Clojure CLI; later jack-ins hit the local Maven
+cache (=~/.m2/=) and start in a few seconds.
+
 * Files at a glance (what's where)
 
 Managed with GNU Stow. On a new machine: clone the repo to =~/dotfiles=,

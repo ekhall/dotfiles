@@ -59,6 +59,19 @@ size their columns independently, so they never line up). Realign with
 |                      | C-c u           | my/read-url-as-org                    | read a URL (prompted) as clean Org                              |
 |----------------------+-----------------+---------------------------------------+-----------------------------------------------------------------|
 | Org                  | C-c a           | org-agenda                            | open the agenda (todos + calendars)                             |
+|----------------------+-----------------+---------------------------------------+-----------------------------------------------------------------|
+| Clojure (CIDER)      | C-c C-x j j     | cider-jack-in-clj                     | boot nREPL in the project + connect                             |
+|                      | C-c C-c         | cider-eval-defun-at-point             | eval top-level form at point (inline overlay)                   |
+|                      | C-c C-e         | cider-eval-last-sexp                  | eval form before point                                          |
+|                      | C-c C-k         | cider-load-buffer                     | load (re-eval) the whole file                                   |
+|                      | C-c C-t t       | cider-test-run-test                   | run the test at point                                           |
+|                      | C-c C-d C-d     | cider-doc                             | docstring for symbol at point                                   |
+|                      | M-. / M-,       | cider-find-var / pop back             | jump to definition / jump back                                  |
+|----------------------+-----------------+---------------------------------------+-----------------------------------------------------------------|
+| Clojure (sexps)      | C-<right>       | sp-forward-slurp-sexp                 | pull next form into current parens (Clojure bufs only)          |
+|                      | C-<left>        | sp-forward-barf-sexp                  | push last form out of current parens                            |
+|                      | M-D             | sp-splice-sexp                        | remove surrounding parens, keep contents                        |
+|                      | M-R             | sp-raise-sexp                         | replace parent form with form at point                          |
 
 * Introduction
 
@@ -965,6 +978,95 @@ compiled, machine-specific binary, not something to carry in the repo.
 ;; attach to) rust-analyzer for it.  `eglot-ensure' is idempotent -- safe to
 ;; run again on an already-connected buffer.
 (add-hook 'rust-ts-mode-hook #'eglot-ensure)
+#+end_src
+
+** Clojure
+
+Same three-layer architecture as [[*Rust]] -- major mode + language server +
+flymake -- plus a fourth piece Rust has no analogue for: *CIDER*, a REPL
+client. The division of labor between the last two is the thing to hold on
+to: ~clojure-lsp~ (spoken to by eglot, exactly like rust-analyzer) knows what
+the code *says* -- clj-kondo diagnostics, find-references, rename, all with
+no running program -- while CIDER knows what the program is *doing*: it
+connects Emacs to a live JVM over the nREPL protocol and evaluates forms
+from the buffer into that running process. They are complementary, not
+rivals; both run at once.
+
+Differences from the Rust setup, layer by layer:
+
+1. *Major mode* (~clojure-ts-mode~) comes from MELPA rather than being
+   bundled -- and it manages its *own* tree-sitter grammar (downloads and
+   compiles it on first use; ~clojure-ts-ensure-grammars~ is ~t~ by
+   default), so none of the ~treesit-language-source-alist~ /
+   ~treesit-install-language-grammar~ dance from the Rust block is needed.
+   The one setting worth flagging: ~clojure-ts-toplevel-inside-comment-form~
+   makes forms inside a ~(comment ...)~ block count as top-level, which is
+   what makes "rich comment" scratchpads evaluable one form at a time.
+2. *Language server* (~clojure-lsp~) is an external native binary installed
+   per machine via Homebrew (see
+   [[file:setup-notes.org::*Clojure (clojure-ts-mode + CIDER + eglot)][setup-notes: Clojure]]),
+   wired up with the same one-line ~eglot-ensure~ hook as Rust. Diagnostics
+   land in flymake; completions surface through the existing Corfu/Cape
+   stack (see [[*In-Buffer Completion]]) with no glue code -- and when a
+   CIDER REPL is connected, CIDER's runtime-aware completions join in
+   through the same ~completion-at-point~ extension point.
+3. *CIDER*: ~C-c C-x j j~ (~cider-jack-in-clj~) in any project with a
+   =deps.edn= boots a JVM with an nREPL server injected and connects to it;
+   after that, ~C-c C-c~ re-evaluates the top-level form at point into the
+   live process (result shown as an inline overlay at point), ~C-c C-e~
+   evaluates the form before point, ~C-c C-k~ loads the whole buffer. The
+   ~:custom~ settings below tune exactly this inline-results workflow.
+4. *Structural editing* (~smartparens~ in strict mode) -- scoped to Clojure
+   buffers only, deliberately not enabled for elisp, so it changes no
+   existing habits. Strict mode keeps delimiters permanently balanced, and
+   editing happens by *expression*: slurp/barf (~C-<right>~ / ~C-<left>~,
+   shadowing plain word-motion in these buffers only) grow and shrink the
+   current parens, splice (~M-D~) removes the surrounding parens, raise
+   (~M-R~) replaces the parent expression with the one at point. Paredit's
+   traditional ~M-s~ binding for splice is off-limits here because ~M-s~ is
+   the Consult search prefix (see [[*Consult]]).
+
+#+begin_src emacs-lisp
+;; Major mode.  Unlike Rust, no grammar recipe/build stanza is needed --
+;; clojure-ts-mode fetches and compiles its own tree-sitter grammar on
+;; first use (same Git + C compiler requirements as the Rust one; also
+;; lands in the gitignored ~/.emacs.d/tree-sitter/).
+(use-package clojure-ts-mode
+  :custom
+  ;; Treat each form inside (comment ...) as its own top-level form, so
+  ;; C-c C-c works form-by-form in rich-comment scratchpads.
+  (clojure-ts-toplevel-inside-comment-form t))
+
+;; The REPL client.  `cider-jack-in-clj' (C-c C-x j j) shells out to the
+;; Clojure CLI (`clojure' on PATH -- external install, see setup-notes),
+;; so nothing here runs at startup; CIDER only acts when invoked.
+(use-package cider
+  :custom
+  (cider-repl-display-help-banner nil)          ; skip the REPL banner
+  (cider-use-overlays t)                        ; results inline at point
+  (cider-eval-result-duration 'change)          ; overlay stays until an edit
+  (cider-save-file-on-load t)                   ; C-c C-k saves silently
+  (cider-repl-pop-to-buffer-on-connect 'display-only)) ; show REPL, keep focus
+
+;; Structural editing, Clojure buffers only (source + REPL prompt).
+;; smartparens-mode-map is only consulted where the mode is on, so these
+;; bindings shadow nothing outside Clojure.
+(use-package smartparens
+  :hook ((clojure-ts-mode . smartparens-strict-mode)
+         (cider-repl-mode . smartparens-strict-mode))
+  :config
+  ;; Load the default pair definitions (what makes strings/chars behave).
+  (require 'smartparens-config)
+  :bind (:map smartparens-mode-map
+              ("C-<right>" . sp-forward-slurp-sexp)
+              ("C-<left>"  . sp-forward-barf-sexp)
+              ("M-D"       . sp-splice-sexp)
+              ("M-R"       . sp-raise-sexp)))
+
+;; LSP wire-up, same pattern as Rust: start (or attach to) clojure-lsp
+;; whenever a buffer enters clojure-ts-mode (derived modes -- ClojureScript,
+;; .cljc -- run this parent hook too).
+(add-hook 'clojure-ts-mode-hook #'eglot-ensure)
 #+end_src
 
 * Encrypted Files (EasyPG)

@@ -411,6 +411,49 @@ line the way plain `TAB' / `org-cycle' require."
 (add-hook 'rust-ts-mode-hook #'eglot-ensure)
 ;; Rust:1 ends here
 
+;; [[file:config.org::*Clojure][Clojure:1]]
+;; Major mode.  Unlike Rust, no grammar recipe/build stanza is needed --
+;; clojure-ts-mode fetches and compiles its own tree-sitter grammar on
+;; first use (same Git + C compiler requirements as the Rust one; also
+;; lands in the gitignored ~/.emacs.d/tree-sitter/).
+(use-package clojure-ts-mode
+  :custom
+  ;; Treat each form inside (comment ...) as its own top-level form, so
+  ;; C-c C-c works form-by-form in rich-comment scratchpads.
+  (clojure-ts-toplevel-inside-comment-form t))
+
+;; The REPL client.  `cider-jack-in-clj' (C-c C-x j j) shells out to the
+;; Clojure CLI (`clojure' on PATH -- external install, see setup-notes),
+;; so nothing here runs at startup; CIDER only acts when invoked.
+(use-package cider
+  :custom
+  (cider-repl-display-help-banner nil)          ; skip the REPL banner
+  (cider-use-overlays t)                        ; results inline at point
+  (cider-eval-result-duration 'change)          ; overlay stays until an edit
+  (cider-save-file-on-load t)                   ; C-c C-k saves silently
+  (cider-repl-pop-to-buffer-on-connect 'display-only)) ; show REPL, keep focus
+
+;; Structural editing, Clojure buffers only (source + REPL prompt).
+;; smartparens-mode-map is only consulted where the mode is on, so these
+;; bindings shadow nothing outside Clojure.
+(use-package smartparens
+  :hook ((clojure-ts-mode . smartparens-strict-mode)
+         (cider-repl-mode . smartparens-strict-mode))
+  :config
+  ;; Load the default pair definitions (what makes strings/chars behave).
+  (require 'smartparens-config)
+  :bind (:map smartparens-mode-map
+              ("C-<right>" . sp-forward-slurp-sexp)
+              ("C-<left>"  . sp-forward-barf-sexp)
+              ("M-D"       . sp-splice-sexp)
+              ("M-R"       . sp-raise-sexp)))
+
+;; LSP wire-up, same pattern as Rust: start (or attach to) clojure-lsp
+;; whenever a buffer enters clojure-ts-mode (derived modes -- ClojureScript,
+;; .cljc -- run this parent hook too).
+(add-hook 'clojure-ts-mode-hook #'eglot-ensure)
+;; Clojure:1 ends here
+
 ;; [[file:config.org::*Encrypted Files (EasyPG)][Encrypted Files (EasyPG):1]]
 (setq epa-file-encrypt-to '("hall@absinthe.org")
       epa-file-select-keys nil)
