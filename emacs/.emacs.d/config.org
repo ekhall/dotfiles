@@ -882,6 +882,32 @@ runs ~jinx-languages~ to switch dictionaries on the fly.
          ("C-M-$" . jinx-languages)))
 #+end_src
 
+** Lisp jargon dictionary (Clojure + Elisp comments)
+
+Jinx checks comments as prose, so ordinary Lisp/Clojure/Emacs jargon in a
+comment -- ~nREPL~, ~defn~, ~sexp~, ~docstring~, "jack in", ~eglot~ -- gets
+flagged as a misspelling next to genuine typos, which is noisy rather than
+useful. ~jinx-local-words~ is Jinx's own escape hatch for exactly this: a
+buffer-local, space-separated list of extra words to accept, normally set
+via ~.dir-locals.el~ for one project. Setting it from a *major-mode hook*
+instead means every Clojure and Elisp buffer gets the list automatically --
+including brand-new projects -- with no per-directory file to maintain.
+Real typos elsewhere in the comment, and in prose/Org buffers, are still
+caught; this only widens the dictionary for these two modes.
+
+#+begin_src emacs-lisp
+(defun my/jinx-add-lisp-jargon ()
+  (setq-local jinx-local-words
+              (concat jinx-local-words
+                      " nREPL REPL sexp sexps defn defns docstring"
+                      " eval evals evaluatable cider CIDER"
+                      " clj clojure Clojure ClojureScript deps.edn"
+                      " clj-kondo eglot flymake lsp"
+                      " kbd elisp Elisp defvar defcustom sexp's")))
+(add-hook 'clojure-ts-mode-hook #'my/jinx-add-lisp-jargon)
+(add-hook 'emacs-lisp-mode-hook #'my/jinx-add-lisp-jargon)
+#+end_src
+
 ** Turn off ispell word-completion in text buffers
 
 Emacs 30 enables ~ispell~-dictionary word completion in every ~text-mode~

@@ -369,6 +369,19 @@ line the way plain `TAB' / `org-cycle' require."
          ("C-M-$" . jinx-languages)))
 ;; Spell Checking:1 ends here
 
+;; [[file:config.org::*Lisp jargon dictionary (Clojure + Elisp comments)][Lisp jargon dictionary (Clojure + Elisp comments):1]]
+(defun my/jinx-add-lisp-jargon ()
+  (setq-local jinx-local-words
+              (concat jinx-local-words
+                      " nREPL REPL sexp sexps defn defns docstring"
+                      " eval evals evaluatable cider CIDER"
+                      " clj clojure Clojure ClojureScript deps.edn"
+                      " clj-kondo eglot flymake lsp"
+                      " kbd elisp Elisp defvar defcustom sexp's")))
+(add-hook 'clojure-ts-mode-hook #'my/jinx-add-lisp-jargon)
+(add-hook 'emacs-lisp-mode-hook #'my/jinx-add-lisp-jargon)
+;; Lisp jargon dictionary (Clojure + Elisp comments):1 ends here
+
 ;; [[file:config.org::*Turn off ispell word-completion in text buffers][Turn off ispell word-completion in text buffers:1]]
 (setq text-mode-ispell-word-completion nil)
 ;; Turn off ispell word-completion in text buffers:1 ends here
