@@ -370,20 +370,25 @@ line the way plain `TAB' / `org-cycle' require."
 ;; Spell Checking:1 ends here
 
 ;; [[file:config.org::*Lisp jargon dictionary (Clojure + Elisp comments)][Lisp jargon dictionary (Clojure + Elisp comments):1]]
-(defun my/jinx-add-lisp-jargon ()
-  (setq-local jinx-local-words
-              (concat jinx-local-words
-                      " nrepl nREPL repl REPL sexp sexps"
-                      " defn defns defun defuns docstring docstrings"
-                      " eval evals evaluatable evaluatably"
-                      " cider CIDER clj clojure Clojure ClojureScript"
-                      " deps edn babashka bb"
-                      " kondo eglot flymake lsp LSP"
-                      " paren parens parenthesis parenthesized"
-                      " slurp slurping barf barfing splice raise"
-                      " kbd elisp Elisp defvar defcustom")))
-(add-hook 'clojure-ts-mode-hook #'my/jinx-add-lisp-jargon)
-(add-hook 'emacs-lisp-mode-hook #'my/jinx-add-lisp-jargon)
+(with-eval-after-load 'jinx
+  (defun my/jinx-add-lisp-jargon ()
+    (setq-local jinx-local-words
+                (concat jinx-local-words
+                        " nrepl nREPL repl REPL sexp sexps"
+                        " defn defns defun defuns docstring docstrings"
+                        " eval evals evaluatable evaluatably"
+                        " cider CIDER clj clojure Clojure ClojureScript"
+                        " deps edn babashka bb"
+                        " kondo eglot flymake lsp LSP"
+                        " paren parens parenthesis parenthesized"
+                        " slurp slurping barf barfing splice raise"
+                        " kbd elisp Elisp defvar defcustom")))
+  (add-hook 'clojure-ts-mode-hook #'my/jinx-add-lisp-jargon)
+  (add-hook 'emacs-lisp-mode-hook #'my/jinx-add-lisp-jargon)
+  (dolist (buf (buffer-list))
+    (with-current-buffer buf
+      (when (derived-mode-p 'clojure-ts-mode 'emacs-lisp-mode)
+        (my/jinx-add-lisp-jargon)))))
 ;; Lisp jargon dictionary (Clojure + Elisp comments):1 ends here
 
 ;; [[file:config.org::*Turn off ispell word-completion in text buffers][Turn off ispell word-completion in text buffers:1]]

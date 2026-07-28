@@ -900,21 +900,39 @@ one -- ~cider-repl~ is checked as "cider" and "repl" separately, not as one
 token -- so the list below spells out lowercase pieces explicitly rather
 than relying on a single capitalized form like ~REPL~ to also cover ~repl~.
 
+~jinx-local-words~ is defined *inside* the ~jinx~ package, which we load
+lazily (~:hook (emacs-startup . global-jinx-mode)~ above, so it doesn't
+slow down startup). Attaching this hook function directly at top level
+raced that: an early buffer's major-mode hook (the startup ~*scratch*~
+buffer's, in particular) can fire *before* ~jinx~ has actually loaded,
+referencing a variable that doesn't exist yet -- ~"Symbol's value as
+variable is void: jinx-local-words"~. Wrapping the whole thing in
+~with-eval-after-load~ guarantees ~jinx-local-words~ already exists by
+the time this code runs at all. The trailing ~dolist~ catches the one
+remaining gap: buffers that were already open (mode hook already fired)
+before ~jinx~ finished loading -- it applies the dictionary to those
+directly, once, instead of waiting for a hook that already ran.
+
 #+begin_src emacs-lisp
-(defun my/jinx-add-lisp-jargon ()
-  (setq-local jinx-local-words
-              (concat jinx-local-words
-                      " nrepl nREPL repl REPL sexp sexps"
-                      " defn defns defun defuns docstring docstrings"
-                      " eval evals evaluatable evaluatably"
-                      " cider CIDER clj clojure Clojure ClojureScript"
-                      " deps edn babashka bb"
-                      " kondo eglot flymake lsp LSP"
-                      " paren parens parenthesis parenthesized"
-                      " slurp slurping barf barfing splice raise"
-                      " kbd elisp Elisp defvar defcustom")))
-(add-hook 'clojure-ts-mode-hook #'my/jinx-add-lisp-jargon)
-(add-hook 'emacs-lisp-mode-hook #'my/jinx-add-lisp-jargon)
+(with-eval-after-load 'jinx
+  (defun my/jinx-add-lisp-jargon ()
+    (setq-local jinx-local-words
+                (concat jinx-local-words
+                        " nrepl nREPL repl REPL sexp sexps"
+                        " defn defns defun defuns docstring docstrings"
+                        " eval evals evaluatable evaluatably"
+                        " cider CIDER clj clojure Clojure ClojureScript"
+                        " deps edn babashka bb"
+                        " kondo eglot flymake lsp LSP"
+                        " paren parens parenthesis parenthesized"
+                        " slurp slurping barf barfing splice raise"
+                        " kbd elisp Elisp defvar defcustom")))
+  (add-hook 'clojure-ts-mode-hook #'my/jinx-add-lisp-jargon)
+  (add-hook 'emacs-lisp-mode-hook #'my/jinx-add-lisp-jargon)
+  (dolist (buf (buffer-list))
+    (with-current-buffer buf
+      (when (derived-mode-p 'clojure-ts-mode 'emacs-lisp-mode)
+        (my/jinx-add-lisp-jargon)))))
 #+end_src
 
 ** Turn off ispell word-completion in text buffers
