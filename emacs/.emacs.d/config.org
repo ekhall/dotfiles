@@ -895,15 +895,24 @@ including brand-new projects -- with no per-directory file to maintain.
 Real typos elsewhere in the comment, and in prose/Org buffers, are still
 caught; this only widens the dictionary for these two modes.
 
+Jinx splits hyphenated/dotted identifiers into pieces before checking each
+one -- ~cider-repl~ is checked as "cider" and "repl" separately, not as one
+token -- so the list below spells out lowercase pieces explicitly rather
+than relying on a single capitalized form like ~REPL~ to also cover ~repl~.
+
 #+begin_src emacs-lisp
 (defun my/jinx-add-lisp-jargon ()
   (setq-local jinx-local-words
               (concat jinx-local-words
-                      " nREPL REPL sexp sexps defn defns docstring"
-                      " eval evals evaluatable cider CIDER"
-                      " clj clojure Clojure ClojureScript deps.edn"
-                      " clj-kondo eglot flymake lsp"
-                      " kbd elisp Elisp defvar defcustom sexp's")))
+                      " nrepl nREPL repl REPL sexp sexps"
+                      " defn defns defun defuns docstring docstrings"
+                      " eval evals evaluatable evaluatably"
+                      " cider CIDER clj clojure Clojure ClojureScript"
+                      " deps edn babashka bb"
+                      " kondo eglot flymake lsp LSP"
+                      " paren parens parenthesis parenthesized"
+                      " slurp slurping barf barfing splice raise"
+                      " kbd elisp Elisp defvar defcustom")))
 (add-hook 'clojure-ts-mode-hook #'my/jinx-add-lisp-jargon)
 (add-hook 'emacs-lisp-mode-hook #'my/jinx-add-lisp-jargon)
 #+end_src

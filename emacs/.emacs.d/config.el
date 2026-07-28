@@ -373,11 +373,15 @@ line the way plain `TAB' / `org-cycle' require."
 (defun my/jinx-add-lisp-jargon ()
   (setq-local jinx-local-words
               (concat jinx-local-words
-                      " nREPL REPL sexp sexps defn defns docstring"
-                      " eval evals evaluatable cider CIDER"
-                      " clj clojure Clojure ClojureScript deps.edn"
-                      " clj-kondo eglot flymake lsp"
-                      " kbd elisp Elisp defvar defcustom sexp's")))
+                      " nrepl nREPL repl REPL sexp sexps"
+                      " defn defns defun defuns docstring docstrings"
+                      " eval evals evaluatable evaluatably"
+                      " cider CIDER clj clojure Clojure ClojureScript"
+                      " deps edn babashka bb"
+                      " kondo eglot flymake lsp LSP"
+                      " paren parens parenthesis parenthesized"
+                      " slurp slurping barf barfing splice raise"
+                      " kbd elisp Elisp defvar defcustom")))
 (add-hook 'clojure-ts-mode-hook #'my/jinx-add-lisp-jargon)
 (add-hook 'emacs-lisp-mode-hook #'my/jinx-add-lisp-jargon)
 ;; Lisp jargon dictionary (Clojure + Elisp comments):1 ends here
