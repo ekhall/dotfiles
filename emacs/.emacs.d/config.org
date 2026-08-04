@@ -173,10 +173,10 @@ followed by ~RET~ -- the modern replacement for the old
        (add-to-list 'default-frame-alist '(height . 45))))
 #+end_src
 
-** Frame padding and rounded corners
+** Frame padding
 
-Two purely cosmetic changes that between them do most of the work of making
-Emacs look like a 2026 editor rather than a ported X11 application.
+A purely cosmetic change that does most of the work of making Emacs look
+like a 2026 editor rather than a ported X11 application.
 
 [[https://protesilaos.com/emacs/spacious-padding][spacious-padding]] adds
 *internal* margins: space between the text area and the frame edge, padding
@@ -189,16 +189,15 @@ It re-applies itself when the theme changes (it hooks ~enable-theme-functions~
 internally), so ~C-c t~ (see [[*Themes]]) carries the padding across the
 light/dark toggle with no extra wiring here.
 
-~undecorated-round~ is a macOS-only frame parameter (Emacs 29+, NS port):
-the frame gets macOS's rounded corners and *no title bar*. Guarded on
-~system-type~ so the shared config never applies it on the Linux box, where
-the parameter means nothing.
+~undecorated-round~ -- a macOS-only frame parameter (Emacs 29+, NS port)
+giving the frame macOS's rounded corners and *no title bar* -- is left
+**disabled** below, kept for reference in the same spirit as
+[[*mood-line (disabled, kept for reference)][mood-line]].
 
-*The trade-off to know about*: with no title bar there are no traffic-light
-buttons and no strip to drag the window by. Frame geometry still comes from
-~default-frame-alist~ above and fullscreen still works, but if moving the
-frame with the mouse matters, comment out the ~undecorated-round~ line and
-the ordinary title bar comes back.
+It looks good, but removing the title bar also removes the traffic-light
+buttons and the strip you grab to move the window, which is a poor trade
+for a frame you actually drag around. Uncomment the two lines to try it;
+the padding above is what does most of the visual work regardless.
 
 #+begin_src emacs-lisp
 (use-package spacious-padding
@@ -213,10 +212,10 @@ the ordinary title bar comes back.
       :scroll-bar-width 8
       :fringe-width 10)))
 
-;; macOS rounded corners with no title bar.  Comment this out to get the
-;; title bar -- and its drag strip and close/minimise buttons -- back.
-(when (eq system-type 'darwin)
-  (add-to-list 'default-frame-alist '(undecorated-round . t)))
+;; Disabled: macOS rounded corners, but at the cost of the title bar --
+;; and with it the traffic lights and the drag strip.  Uncomment to try.
+;; (when (eq system-type 'darwin)
+;;   (add-to-list 'default-frame-alist '(undecorated-round . t)))
 #+end_src
 
 ** Quiet async native-compilation warnings

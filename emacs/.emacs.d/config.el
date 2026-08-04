@@ -32,7 +32,7 @@
        (add-to-list 'default-frame-alist '(height . 45))))
 ;; Basic UI and Startup Behavior:1 ends here
 
-;; [[file:config.org::*Frame padding and rounded corners][Frame padding and rounded corners:1]]
+;; [[file:config.org::*Frame padding][Frame padding:1]]
 (use-package spacious-padding
   :hook (emacs-startup . spacious-padding-mode)
   :custom
@@ -45,11 +45,11 @@
       :scroll-bar-width 8
       :fringe-width 10)))
 
-;; macOS rounded corners with no title bar.  Comment this out to get the
-;; title bar -- and its drag strip and close/minimise buttons -- back.
-(when (eq system-type 'darwin)
-  (add-to-list 'default-frame-alist '(undecorated-round . t)))
-;; Frame padding and rounded corners:1 ends here
+;; Disabled: macOS rounded corners, but at the cost of the title bar --
+;; and with it the traffic lights and the drag strip.  Uncomment to try.
+;; (when (eq system-type 'darwin)
+;;   (add-to-list 'default-frame-alist '(undecorated-round . t)))
+;; Frame padding:1 ends here
 
 ;; [[file:config.org::*Quiet async native-compilation warnings][Quiet async native-compilation warnings:1]]
 (setq native-comp-async-report-warnings-errors 'silent)
