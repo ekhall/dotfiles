@@ -845,6 +845,44 @@ The first ~C-c C-x j j~ in a project downloads CIDER's injected nREPL
 dependencies through the Clojure CLI; later jack-ins hit the local Maven
 cache (=~/.m2/=) and start in a few seconds.
 
+* Fonts (per-machine — none of these travel in the repo)
+
+Font *files* are machine state, not config: =config.org= only names families
+and degrades gracefully when one is missing (see
+[[file:config.org::*Fonts][config.org: Fonts]]). So a new machine looks
+progressively better as these are installed, and never breaks without them.
+
+** Nerd Font symbols — needed for icons
+
+Run once, from inside Emacs:
+
+: M-x nerd-icons-install-fonts
+
+Then restart Emacs. Without it, every icon in the mode line
+([[file:config.org::*doom-modeline (active)][doom-modeline]]), the minibuffer,
+Corfu, and Dired ([[file:config.org::*Icons][config.org: Icons]]) renders as
+a tofu box.
+
+** JetBrains Mono Nerd Font — needed for ligatures
+
+: brew install --cask font-jetbrains-mono-nerd-font
+
+(Linux/Omarchy already has it as the default mono.) It is *first* in the
+family list in config.org because it is the only font here with both a full
+weight range and programming ligatures — see
+[[file:config.org::*Ligatures][config.org: Ligatures]] for why MonoLisa
+(Regular weight only) and BlexMono (no ligatures) each fall short. Until
+this is installed, macOS falls through to SF Mono and nothing renders
+differently.
+
+** SF Mono / SF Pro — Apple's, optional
+
+SF Mono is bundled inside Xcode and Terminal but is not registered as a
+system font other apps can resolve by name. Apple distributes both
+standalone at [[https://developer.apple.com/fonts/]]; install if you want
+SF Mono as the mono fallback and SF Pro Text for prose
+([[file:config.org::*Prose Writing][prose-mode]]).
+
 * Files at a glance (what's where)
 
 Managed with GNU Stow. On a new machine: clone the repo to =~/dotfiles=,

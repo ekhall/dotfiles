@@ -32,6 +32,25 @@
        (add-to-list 'default-frame-alist '(height . 45))))
 ;; Basic UI and Startup Behavior:1 ends here
 
+;; [[file:config.org::*Frame padding and rounded corners][Frame padding and rounded corners:1]]
+(use-package spacious-padding
+  :hook (emacs-startup . spacious-padding-mode)
+  :custom
+  (spacious-padding-widths
+   '( :internal-border-width 18
+      :header-line-width 4
+      :mode-line-width 6
+      :tab-width 4
+      :right-divider-width 24
+      :scroll-bar-width 8
+      :fringe-width 10)))
+
+;; macOS rounded corners with no title bar.  Comment this out to get the
+;; title bar -- and its drag strip and close/minimise buttons -- back.
+(when (eq system-type 'darwin)
+  (add-to-list 'default-frame-alist '(undecorated-round . t)))
+;; Frame padding and rounded corners:1 ends here
+
 ;; [[file:config.org::*Quiet async native-compilation warnings][Quiet async native-compilation warnings:1]]
 (setq native-comp-async-report-warnings-errors 'silent)
 ;; Quiet async native-compilation warnings:1 ends here
@@ -54,7 +73,7 @@ sizes); the umbrella \"SF Pro\" name does not resolve, so the specific
 cuts are named. When neither is installed the face is left alone,
 falling back to its default \"Sans Serif\"."
   (let ((mono-font (seq-find (lambda (f) (member f (font-family-list)))
-                             '("SF Mono" "Menlo" "JetBrainsMono Nerd Font")))
+                             '("JetBrainsMono Nerd Font" "SF Mono" "Menlo")))
         (prose-font (seq-find (lambda (f) (member f (font-family-list)))
                               '("SF Pro Text" "SF Pro Display"))))
     (set-face-attribute
@@ -74,6 +93,25 @@ falling back to its default \"Sans Serif\"."
     (add-hook 'server-after-make-frame-hook #'my/apply-font-settings)
   (my/apply-font-settings))
 ;; Fonts:1 ends here
+
+;; [[file:config.org::*Ligatures][Ligatures:1]]
+(use-package ligature
+  :config
+  (ligature-set-ligatures
+   'prog-mode
+   '("|||>" "<|||" "<==>" "<!--" "~~>" "***" "||=" "||>" ":::" "::="
+     "=:=" "===" "==>" "=!=" "=>>" "=<<" "=/=" "!==" "!!." ">=>" ">>="
+     ">>>" ">>-" ">->" "->>" "-->" "---" "-<<" "<~~" "<~>" "<*>" "<||"
+     "<|>" "<$>" "<==" "<=>" "<=<" "<->" "<--" "<-<" "<<=" "<<-" "<<<"
+     "<+>" "</>" "###" "..<" "..." "+++" "/==" "///" "_|_" "www" "&&"
+     "^=" "~~" "~@" "~=" "~>" "~-" "**" "*>" "*/" "||" "|}" "|]" "|="
+     "|>" "|-" "{|" "[|" "]#" "::" ":=" ":>" ":<" "$>" "==" "=>" "!="
+     "!!" ">:" ">=" ">>" ">-" "-~" "-|" "->" "--" "-<" "<~" "<*" "<|"
+     "<:" "<$" "<=" "<>" "<-" "<<" "<+" "</" "#{" "#[" "#:" "#=" "#!"
+     "##" "#(" "#?" "#_" "%%" ".=" ".-" ".." ".?" "+>" "++" "?:" "?="
+     "?." "??" ";;" "/*" "/=" "/>" "//" "__" "(*" "*)" "://"))
+  (global-ligature-mode t))
+;; Ligatures:1 ends here
 
 ;; [[file:config.org::*Networking][Networking:1]]
 (with-eval-after-load 'gnutls
@@ -127,6 +165,22 @@ never stack."
 (use-package doom-modeline
   :hook (emacs-startup . doom-modeline-mode))
 ;; doom-modeline (active):1 ends here
+
+;; [[file:config.org::*Icons][Icons:1]]
+(use-package nerd-icons-completion
+  :after marginalia
+  :config
+  (nerd-icons-completion-mode)
+  (add-hook 'marginalia-mode-hook #'nerd-icons-completion-marginalia-setup))
+
+(use-package nerd-icons-corfu
+  :after corfu
+  :config
+  (add-to-list 'corfu-margin-formatters #'nerd-icons-corfu-formatter))
+
+(use-package nerd-icons-dired
+  :hook (dired-mode . nerd-icons-dired-mode))
+;; Icons:1 ends here
 
 ;; [[file:config.org::*Custom Keybindings][Custom Keybindings:1]]
 (defun my/reload-config ()
@@ -265,6 +319,10 @@ undone until a full restart."
   (corfu-auto t)
   (corfu-cycle t))
 ;; Corfu:1 ends here
+
+;; [[file:config.org::*Completion preview (inline ghost text)][Completion preview (inline ghost text):1]]
+(add-hook 'prog-mode-hook #'completion-preview-mode)
+;; Completion preview (inline ghost text):1 ends here
 
 ;; [[file:config.org::*Avy][Avy:1]]
 (use-package avy

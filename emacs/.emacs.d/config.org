@@ -173,6 +173,52 @@ followed by ~RET~ -- the modern replacement for the old
        (add-to-list 'default-frame-alist '(height . 45))))
 #+end_src
 
+** Frame padding and rounded corners
+
+Two purely cosmetic changes that between them do most of the work of making
+Emacs look like a 2026 editor rather than a ported X11 application.
+
+[[https://protesilaos.com/emacs/spacious-padding][spacious-padding]] adds
+*internal* margins: space between the text area and the frame edge, padding
+inside the mode line, and real window dividers. Emacs by default draws text
+hard against the bezel with a zero-width internal border, and that density --
+more than the colours or the font -- is what reads as dated next to Zed or
+VS Code. No behaviour changes; only geometry.
+
+It re-applies itself when the theme changes (it hooks ~enable-theme-functions~
+internally), so ~C-c t~ (see [[*Themes]]) carries the padding across the
+light/dark toggle with no extra wiring here.
+
+~undecorated-round~ is a macOS-only frame parameter (Emacs 29+, NS port):
+the frame gets macOS's rounded corners and *no title bar*. Guarded on
+~system-type~ so the shared config never applies it on the Linux box, where
+the parameter means nothing.
+
+*The trade-off to know about*: with no title bar there are no traffic-light
+buttons and no strip to drag the window by. Frame geometry still comes from
+~default-frame-alist~ above and fullscreen still works, but if moving the
+frame with the mouse matters, comment out the ~undecorated-round~ line and
+the ordinary title bar comes back.
+
+#+begin_src emacs-lisp
+(use-package spacious-padding
+  :hook (emacs-startup . spacious-padding-mode)
+  :custom
+  (spacious-padding-widths
+   '( :internal-border-width 18
+      :header-line-width 4
+      :mode-line-width 6
+      :tab-width 4
+      :right-divider-width 24
+      :scroll-bar-width 8
+      :fringe-width 10)))
+
+;; macOS rounded corners with no title bar.  Comment this out to get the
+;; title bar -- and its drag strip and close/minimise buttons -- back.
+(when (eq system-type 'darwin)
+  (add-to-list 'default-frame-alist '(undecorated-round . t)))
+#+end_src
+
 ** Quiet async native-compilation warnings
 
 Emacs 30 natively compiles installed packages *asynchronously in the
@@ -209,10 +255,20 @@ separately in the [[*Elfeed + FreshRSS (synced RSS)][Elfeed]] block.
 
 ** Fonts
 
-Try SF Mono first, then Menlo (macOS's own default monospace,
-always present), then JetBrainsMono Nerd Font (Omarchy's default
-mono on ~framework~), then whatever Emacs already resolves to. SF
-Mono is bundled *inside* apps like Xcode and Terminal but isn't
+Try JetBrainsMono Nerd Font first, then SF Mono, then Menlo (macOS's
+own default monospace, always present), then whatever Emacs already
+resolves to.
+
+JetBrainsMono Nerd Font leads the list because it is the only candidate
+carrying *both* a full weight family and a programming ligature set (see
+[[*Ligatures]] for why the other installed fonts fail one or the other).
+It is already ~framework~'s default mono under Omarchy; on macOS it is
+not installed until =brew install --cask font-jetbrains-mono-nerd-font=,
+and until then ~seq-find~ skips it and this resolves to SF Mono exactly
+as it did before -- so the reordering is inert on this Mac right now.
+Prefer SF Mono permanently? Move it back to the head of the list.
+
+SF Mono is bundled *inside* apps like Xcode and Terminal but isn't
 registered as a system font other apps can look up by name unless
 it's separately installed (Apple distributes it standalone at
 [[https://developer.apple.com/fonts/]]) -- so on a fresh machine
@@ -255,7 +311,7 @@ sizes); the umbrella \"SF Pro\" name does not resolve, so the specific
 cuts are named. When neither is installed the face is left alone,
 falling back to its default \"Sans Serif\"."
   (let ((mono-font (seq-find (lambda (f) (member f (font-family-list)))
-                             '("SF Mono" "Menlo" "JetBrainsMono Nerd Font")))
+                             '("JetBrainsMono Nerd Font" "SF Mono" "Menlo")))
         (prose-font (seq-find (lambda (f) (member f (font-family-list)))
                               '("SF Pro Text" "SF Pro Display"))))
     (set-face-attribute
@@ -274,6 +330,60 @@ falling back to its default \"Sans Serif\"."
 (if (daemonp)
     (add-hook 'server-after-make-frame-hook #'my/apply-font-settings)
   (my/apply-font-settings))
+#+end_src
+
+** Ligatures
+
+Emacs 28+ shapes text through HarfBuzz, so a font's programming ligatures --
+=->= or ==>= or =!== drawn as one connected glyph instead of two characters
+butted together -- render correctly as soon as something tells Emacs which
+sequences to compose. [[https://github.com/mickeynp/ligature.el][ligature.el]]
+is that something. Scoped to ~prog-mode~, so prose and Org are untouched.
+
+This pays off more in Clojure than in most languages: the threading macros
+(~->~, ~->>~, ~cond->~) and the comparison operators turn up constantly, and
+they are exactly the sequences these ligature sets are designed around.
+
+*Ligatures only render if the active font actually contains them*, and the
+fonts on this Mac are a mixed bag:
+
+- =SF Mono= -- no programming ligature set.
+- =MonoLisa Nerd Font= -- an excellent set, but only the *Regular* weight is
+  installed here: no bold, no italic. With ~doom-themes-enable-bold~ and
+  ~-italic~ both on (see [[*Themes]]), every bold or italic face would be
+  synthesised by smearing and skewing the regular glyphs, which looks worse
+  than the ligatures look good. Not worth the trade.
+- =BlexMono Nerd Font= (IBM Plex Mono) -- all 16 weights, no ligatures.
+- =JetBrainsMono Nerd Font= -- both: the full weight family *and* a strong
+  ligature set. It is what ~framework~ already resolves to, and it is now
+  first in the fallback list in [[*Fonts]] above.
+
+So on macOS the one-time step to actually see any of this is:
+
+: brew install --cask font-jetbrains-mono-nerd-font
+
+Until that runs nothing changes: ~seq-find~ skips the absent family and
+falls through to SF Mono exactly as before. Installing the font *is* the
+switch -- no config edit needed. To keep SF Mono regardless, move it back
+to the head of the list in [[*Fonts]].
+
+#+begin_src emacs-lisp
+(use-package ligature
+  :config
+  (ligature-set-ligatures
+   'prog-mode
+   '("|||>" "<|||" "<==>" "<!--" "~~>" "***" "||=" "||>" ":::" "::="
+     "=:=" "===" "==>" "=!=" "=>>" "=<<" "=/=" "!==" "!!." ">=>" ">>="
+     ">>>" ">>-" ">->" "->>" "-->" "---" "-<<" "<~~" "<~>" "<*>" "<||"
+     "<|>" "<$>" "<==" "<=>" "<=<" "<->" "<--" "<-<" "<<=" "<<-" "<<<"
+     "<+>" "</>" "###" "..<" "..." "+++" "/==" "///" "_|_" "www" "&&"
+     "^=" "~~" "~@" "~=" "~>" "~-" "**" "*>" "*/" "||" "|}" "|]" "|="
+     "|>" "|-" "{|" "[|" "]#" "::" ":=" ":>" ":<" "$>" "==" "=>" "!="
+     "!!" ">:" ">=" ">>" ">-" "-~" "-|" "->" "--" "-<" "<~" "<*" "<|"
+     "<:" "<$" "<=" "<>" "<-" "<<" "<+" "</" "#{" "#[" "#:" "#=" "#!"
+     "##" "#(" "#?" "#_" "%%" ".=" ".-" ".." ".?" "+>" "++" "?:" "?="
+     "?." "??" ";;" "/*" "/=" "/>" "//" "__" "(*" "*)" "://"))
+  (global-ligature-mode t))
 #+end_src
 
 ** Networking
@@ -402,6 +512,43 @@ the default format on the right side, just before the major mode.
           ((mood-line-segment-process)    . "  "))))
 
   (mood-line-mode))
+#+end_src
+
+* Icons
+
+[[*doom-modeline (active)][doom-modeline]] already pulls in
+[[https://github.com/rainstormstudio/nerd-icons.el][nerd-icons]] and its font
+is installed per-machine via ~M-x nerd-icons-install-fonts~ (see that
+section) -- but only the mode line uses any of it. These three extend the
+same icon set, and the same already-installed font, to the places actually
+looked at all day. No new fonts, no new per-machine setup.
+
+- ~nerd-icons-completion~ -- icons in the minibuffer, so ~consult-buffer~ and
+  ~project-find-file~ (see [[*Consult]] / [[*Projects (project.el)]]) show at
+  a glance what kind of thing each candidate is. It renders its annotations
+  *through* Marginalia, which is what the ~marginalia-mode-hook~ line is
+  for: without it the icons vanish the next time Marginalia re-annotates.
+- ~nerd-icons-corfu~ -- symbol-kind icons in the completion popup (see
+  [[*Corfu]]), so a Clojure function, macro, and namespace are
+  distinguishable without reading the annotation text. It installs as a
+  *margin formatter*, Corfu's own extension point for the column to the
+  left of each candidate, rather than by advice.
+- ~nerd-icons-dired~ -- file-type icons in Dired.
+
+#+begin_src emacs-lisp
+(use-package nerd-icons-completion
+  :after marginalia
+  :config
+  (nerd-icons-completion-mode)
+  (add-hook 'marginalia-mode-hook #'nerd-icons-completion-marginalia-setup))
+
+(use-package nerd-icons-corfu
+  :after corfu
+  :config
+  (add-to-list 'corfu-margin-formatters #'nerd-icons-corfu-formatter))
+
+(use-package nerd-icons-dired
+  :hook (dired-mode . nerd-icons-dired-mode))
 #+end_src
 
 * Custom Keybindings
@@ -631,6 +778,25 @@ while typing rather than waiting for an explicit trigger key.
   :custom
   (corfu-auto t)
   (corfu-cycle t))
+#+end_src
+
+** Completion preview (inline ghost text)
+
+Emacs 30 ships ~completion-preview-mode~ in core: the most likely completion
+appears inline in a dimmed face directly after the cursor as you type -- the
+grey ghost-text pattern popularised by Copilot, but driven by the ordinary
+~completion-at-point-functions~ everything else here already uses. So in a
+Clojure buffer it shows CIDER's *runtime* completions when a REPL is
+connected and clojure-lsp's static ones otherwise (see [[*Clojure]]), and in
+Elisp it shows Emacs's own. No package, no network, no model.
+
+It complements [[*Corfu]] rather than replacing it: Corfu pops a *menu* of
+candidates to choose among, this shows the single best guess *in place*.
+If both firing at once feels busy, delete this hook -- nothing else depends
+on it.
+
+#+begin_src emacs-lisp
+(add-hook 'prog-mode-hook #'completion-preview-mode)
 #+end_src
 
 * Navigation
