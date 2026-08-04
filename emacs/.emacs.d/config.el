@@ -59,7 +59,7 @@
 (pixel-scroll-precision-mode 1)
 ;; Smooth scrolling through tall images:1 ends here
 
-;; [[file:config.org::*Fonts][Fonts:1]]
+;; [[file:config.org::*Per-machine font installs][Per-machine font installs:1]]
 (defun my/apply-font-settings ()
   "Set the default and variable-pitch face families for this machine.
 Must run with a graphical frame live: in a daemon session
@@ -92,7 +92,7 @@ falling back to its default \"Sans Serif\"."
 (if (daemonp)
     (add-hook 'server-after-make-frame-hook #'my/apply-font-settings)
   (my/apply-font-settings))
-;; Fonts:1 ends here
+;; Per-machine font installs:1 ends here
 
 ;; [[file:config.org::*Ligatures][Ligatures:1]]
 (use-package ligature

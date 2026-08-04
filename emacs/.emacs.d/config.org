@@ -261,11 +261,25 @@ resolves to.
 JetBrainsMono Nerd Font leads the list because it is the only candidate
 carrying *both* a full weight family and a programming ligature set (see
 [[*Ligatures]] for why the other installed fonts fail one or the other).
-It is already ~framework~'s default mono under Omarchy; on macOS it is
-not installed until =brew install --cask font-jetbrains-mono-nerd-font=,
-and until then ~seq-find~ skips it and this resolves to SF Mono exactly
-as it did before -- so the reordering is inert on this Mac right now.
-Prefer SF Mono permanently? Move it back to the head of the list.
+It is already ~framework~'s default mono under Omarchy. On macOS it is not
+installed by default -- until it is, ~seq-find~ skips it and this resolves
+to SF Mono exactly as before, so the ordering is inert rather than broken.
+
+*** Per-machine font installs
+
+Neither font file travels in this repo; both are one-time, per-machine.
+Run the first to get ligatures, the second to get icons:
+
+: brew install --cask font-jetbrains-mono-nerd-font
+
+: M-x nerd-icons-install-fonts
+
+The second is an Emacs command, not a shell one, and needs a restart
+afterwards -- without it every icon in the mode line, minibuffer, Corfu
+and Dired ([[*Icons]]) renders as a tofu box. Both are also recorded in
+[[file:setup-notes.org::*Fonts (per-machine — none of these travel in the repo)][setup-notes]].
+
+Prefer SF Mono permanently? Move it back to the head of the list below.
 
 SF Mono is bundled *inside* apps like Xcode and Terminal but isn't
 registered as a system font other apps can look up by name unless
