@@ -73,6 +73,84 @@ size their columns independently, so they never line up). Realign with
 |                      | M-D             | sp-splice-sexp                        | remove surrounding parens, keep contents                        |
 |                      | M-R             | sp-raise-sexp                         | replace parent form with form at point                          |
 
+* COMMENT Movement & evaluation reference
+
+Also a ~COMMENT~ heading -- browsable here, excluded from tangle and export.
+
+Where the table above records the bindings *this config sets*, this one is a
+learning reference for the **standard** commands that come with Emacs, CIDER
+and smartparens. Nothing here needs maintaining when the config changes;
+the CIDER rows were read out of the installed package's own keymaps rather
+than from memory, so they match the version actually on disk.
+
+The one distinction worth internalising before reading the eval rows:
+~C-c C-c~ works outward from wherever point is to find the enclosing
+top-level form, whereas ~C-c C-e~ takes the expression that *ends exactly at
+point*. Most confusing "unable to resolve symbol" errors are the second
+command grabbing an inner fragment that references a function parameter --
+which has no binding outside an actual call.
+
+| Section              | Key                | Command                          | Notes                                                          |
+|----------------------+--------------------+----------------------------------+----------------------------------------------------------------|
+| Move: any buffer     | C-f / C-b          | forward/backward-char            | by character                                                   |
+|                      | M-f / M-b          | forward/backward-word            | by word                                                        |
+|                      | C-n / C-p          | next/previous-line               | by line                                                        |
+|                      | C-a / C-e          | move-beginning/end-of-line       | C-a is column 0, *before* any indentation                      |
+|                      | M-m                | back-to-indentation              | first non-blank char — what you usually mean by "line start"   |
+|                      | M-a / M-e          | backward/forward-sentence        | by sentence (prose, docstrings)                                |
+|                      | M-{ / M-}          | backward/forward-paragraph       | by paragraph                                                   |
+|                      | C-v / M-v          | scroll-up/down-command           | page down / page up                                            |
+|                      | M-< / M->          | beginning/end-of-buffer          | top / bottom of file                                           |
+|                      | C-l                | recenter-top-bottom              | cycle point to centre, then top, then bottom                   |
+|                      | C-s / C-r          | isearch-forward/backward         | incremental search; repeat the key to jump to the next hit     |
+|                      | C-x C-SPC          | pop-global-mark                  | jump back to where you just were — even in another buffer      |
+|                      | C-u C-SPC          | (pop local mark)                 | same, but within this buffer only                              |
+|----------------------+--------------------+----------------------------------+----------------------------------------------------------------|
+| Move: Lisp structure | C-M-f / C-M-b      | forward/backward-sexp            | over one whole balanced expression                             |
+|                      | C-M-d              | down-list                        | descend INTO the next nested form                              |
+|                      | C-M-u              | backward-up-list                 | ascend OUT to the enclosing form — the one to learn first      |
+|                      | C-M-n / C-M-p      | forward/backward-list            | over whole lists, skipping atoms                               |
+|                      | C-M-a / C-M-e      | beginning/end-of-defun           | to the start / end of the top-level form                       |
+|                      | C-M-SPC            | mark-sexp                        | select one form; press again to extend by one more              |
+|                      | C-M-h              | mark-defun                       | select the entire top-level form                               |
+|----------------------+--------------------+----------------------------------+----------------------------------------------------------------|
+| Edit: Lisp structure | C-M-k              | kill-sexp                        | cut one balanced expression                                    |
+|                      | C-M-t              | transpose-sexps                  | swap the two forms around point                                |
+|                      | TAB                | indent-for-tab-command           | reindent this line to its correct depth                        |
+|                      | C-M-q              | indent-sexp                      | reindent the whole enclosing form at once                      |
+|                      | C-<right>          | sp-forward-slurp-sexp            | pull the next form INTO the current parens                     |
+|                      | C-<left>           | sp-forward-barf-sexp             | push the last form OUT of the current parens                   |
+|                      | M-D                | sp-splice-sexp                   | delete the surrounding parens, keep the contents               |
+|                      | M-R                | sp-raise-sexp                    | replace the parent form with the one point is in               |
+|                      | select, then "("   | (smartparens wrap)               | wraps the region in parens instead of inserting a bare one     |
+|----------------------+--------------------+----------------------------------+----------------------------------------------------------------|
+| Eval: Clojure        | C-c C-x j j        | cider-jack-in-clj                | start an nREPL for the project and connect                     |
+|                      | C-c C-k            | cider-load-buffer                | load/re-eval the whole file                                    |
+|                      | C-c C-c   (C-M-x)  | cider-eval-defun-at-point        | eval the top-level form point is anywhere inside               |
+|                      | C-c C-e   (C-x C-e)| cider-eval-last-sexp             | eval the form ENDING at point                                  |
+|                      | C-c M-e            | cider-eval-last-sexp-to-repl     | ...and print the result into the REPL buffer                   |
+|                      | C-c C-p            | cider-pprint-eval-last-sexp      | ...pretty-printed into a popup                                 |
+|                      | C-c C-f            | cider-pprint-eval-defun-at-point | pretty-print the whole top-level form's value                  |
+|                      | C-c M-;            | cider-eval-defun-to-comment      | insert the result into the buffer as a comment                 |
+|                      | C-c M-i            | cider-inspect                    | eval into the navigable inspector (drill into nested data)     |
+|                      | C-c C-m 1  /  a    | cider-macroexpand-1 / -all       | expand a macro one step / fully — how to demystify cond->      |
+|                      | C-c C-d d          | cider-doc                        | docstring for the symbol at point                              |
+|                      | C-c C-d a          | cider-apropos                    | search docs                                                    |
+|                      | C-c C-d j          | cider-javadoc                    | JavaDoc, for Java interop                                      |
+|                      | M-.  /  M-,        | cider-find-var / cider-pop-back  | jump to definition (incl. library source) / jump back          |
+|                      | C-c M-n n          | cider-repl-set-ns                | point the REPL at this buffer's namespace                      |
+|                      | C-c C-t t  /  n    | cider-test-run-test / -ns-tests  | run the test at point / all tests in the namespace             |
+|                      | C-c C-z            | cider-switch-to-repl-buffer      | hop to the REPL and back                                       |
+|                      | C-c C-o            | cider-find-and-clear-repl-output | clear the REPL log (stale errors scroll away)                  |
+|                      | C-c C-b            | cider-interrupt                  | stop a runaway evaluation                                      |
+|                      | C-u C-M-x          | (instrumented eval)              | re-eval a defn with the CIDER debugger attached                |
+|----------------------+--------------------+----------------------------------+----------------------------------------------------------------|
+| Eval: Emacs Lisp     | C-x C-e            | eval-last-sexp                   | eval the form before point                                     |
+|                      | C-M-x              | eval-defun                       | eval the top-level form                                        |
+|                      | M-:                | eval-expression                  | eval something typed into the minibuffer                       |
+|                      | C-c C-c            | org-babel-execute-src-block      | in Org: run the source block at point                          |
+|                      | C-c r              | my/reload-config                 | re-tangle and reload this file                                 |
+
 * Introduction
 
 This is a literate Emacs configuration. Everything Emacs actually
