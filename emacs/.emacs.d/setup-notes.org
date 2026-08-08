@@ -845,6 +845,63 @@ The first ~C-c C-x j j~ in a project downloads CIDER's injected nREPL
 dependencies through the Clojure CLI; later jack-ins hit the local Maven
 cache (=~/.m2/=) and start in a few seconds.
 
+* Elixir & Phoenix (elixir-ts-mode + eglot)
+
+Everything Emacs-side travels in =config.org= (see
+[[file:config.org::*Elixir & Phoenix][config.org: Elixir & Phoenix]] --
+the major modes are bundled with Emacs 30, so the only MELPA package is
+=inf-elixir=). Per machine you need the Elixir toolchain and a language
+server; the tree-sitter grammars build themselves.
+
+** Install the Elixir toolchain (macOS, Homebrew)
+
+: brew install elixir
+
+Gives =elixir=, =mix=, and =iex= (pulling in Erlang/OTP as a dependency).
+On =/opt/homebrew/bin=, so GUI Emacs sees it via exec-path-from-shell
+(see [[file:config.org::*Inherit the shell PATH (macOS)][config.org]]).
+
+Linux (Arch): ~pacman -S elixir~. Verify: ~elixir -v~.
+
+Phoenix itself is *not* a system install -- it's a Mix archive plus per-project
+deps:
+
+: mix local.hex --force
+: mix archive.install hex phx_new --force
+
+** Install a language server (pick one)
+
+=config.org= tries, in order, =expert=, =elixir-ls=, =language_server.sh=,
+=start_lexical.sh=, and uses the first found on =PATH=. ~expert~ is the
+official one the Elixir team is consolidating on and the one to prefer:
+
+: brew install expert          # or: download a release binary, chmod +x, put on PATH
+
+If Homebrew has no formula on this machine, grab the platform binary from
+[[https://github.com/elixir-lang/expert/releases][elixir-lang/expert releases]],
+name it =expert=, and drop it in =~/.local/bin= (already on =PATH= per
+[[*=~/.local/bin= must be on =$PATH=]]). ~elixir-ls~ (=brew install elixir-ls=)
+works too and needs no config change.
+
+Check what Emacs will find: ~M-x eglot~ in an =.ex= buffer, or from a shell
+~which expert elixir-ls language_server.sh~.
+
+** Tree-sitter grammars (built automatically)
+
+Same as Rust, but *two* of them -- =elixir= and =heex=. =config.org= installs
+either one that's missing on load (needs Git, a C compiler, and network access
+per [[*1. Install packages]]); they compile into the gitignored
+=~/.emacs.d/tree-sitter/=. The =heex= one is what highlights Phoenix templates
+*and* the ~~H"""..."""~ sigils inside LiveView =.ex= files; without it those
+sigil bodies silently render as plain strings. To force a rebuild, delete the
+=.dylib=/=.so= and reload =config.org=.
+
+** First server start is slow (once)
+
+The first ~eglot~ connection in a project compiles the whole dependency tree
+into =_build/= before diagnostics appear -- minutes on a fresh Phoenix app,
+seconds afterwards.
+
 * Fonts (per-machine — none of these travel in the repo)
 
 Font *files* are machine state, not config: =config.org= only names families

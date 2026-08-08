@@ -538,6 +538,83 @@ line the way plain `TAB' / `org-cycle' require."
 (add-hook 'clojure-ts-mode-hook #'eglot-ensure)
 ;; Clojure:1 ends here
 
+;; [[file:config.org::*Elixir & Phoenix][Elixir & Phoenix:1]]
+;; Grammar recipes.  Two of them: Elixir proper, and HEEx for Phoenix
+;; templates (and for the ~H sigils embedded in .ex LiveView modules --
+;; elixir-ts-mode silently skips that embedding if the heex grammar is
+;; missing, so this is not optional on a Phoenix machine).
+(add-to-list 'treesit-language-source-alist
+             '(elixir "https://github.com/elixir-lang/tree-sitter-elixir"))
+(add-to-list 'treesit-language-source-alist
+             '(heex "https://github.com/phoenixframework/tree-sitter-heex"))
+
+;; Build them now if absent (first machine setup only -- needs Git, a C
+;; compiler, and network access; lands in the gitignored ~/.emacs.d/tree-sitter/).
+(dolist (lang '(elixir heex))
+  (unless (treesit-language-available-p lang)
+    (treesit-install-language-grammar lang)))
+
+;; File associations.  The bundled modes register these themselves, but only
+;; via an autoload guarded on the grammar already being present at startup --
+;; which is false on the very run that installs the grammars above.  Setting
+;; them explicitly means Elixir files open correctly in that first session too.
+(add-to-list 'auto-mode-alist '("\\.exs?\\'"     . elixir-ts-mode))
+(add-to-list 'auto-mode-alist '("mix\\.lock\\'"  . elixir-ts-mode))
+(add-to-list 'auto-mode-alist '("\\.[hl]?eex\\'" . heex-ts-mode))
+
+;; Language server.  Replaces Emacs 30's built-in entry (elixir-ls/lexical
+;; only) with one that also knows `expert', the official server; whichever
+;; of the three is on PATH wins.  `add-to-list' puts this ahead of the
+;; built-in pair, and eglot uses the first match.
+(with-eval-after-load 'eglot
+  (add-to-list 'eglot-server-programs
+               `((elixir-ts-mode heex-ts-mode elixir-mode)
+                 . ,(eglot-alternatives
+                     '("expert" "elixir-ls" "language_server.sh" "start_lexical.sh")))))
+
+;; Start (or attach to) the server in both Elixir and template buffers.
+(add-hook 'elixir-ts-mode-hook #'eglot-ensure)
+(add-hook 'heex-ts-mode-hook   #'eglot-ensure)
+
+;; `mix format' on save, via the server's LSP formatting support.  Buffer-local
+;; hook, and a no-op when no server is attached, so it can never block a save.
+(defun my/elixir-format-on-save ()
+  "Format the current buffer with eglot before saving, if a server is attached."
+  (when (eglot-managed-p)
+    (eglot-format-buffer)))
+
+(dolist (hook '(elixir-ts-mode-hook heex-ts-mode-hook))
+  (add-hook hook
+            (lambda ()
+              (add-hook 'before-save-hook #'my/elixir-format-on-save nil t))))
+
+;; IEx REPL.  Nothing runs at startup; the commands shell out to `mix' /
+;; `iex' (external install, see setup-notes) only when invoked.
+(use-package inf-elixir
+  :commands (inf-elixir inf-elixir-project inf-elixir-set-repl
+             inf-elixir-send-line inf-elixir-send-region
+             inf-elixir-send-buffer inf-elixir-reload-module)
+  :custom
+  ;; A Phoenix app is only usefully inspectable with the endpoint running,
+  ;; so make that the default project REPL rather than a bare `iex -S mix'.
+  ;; Non-Phoenix mix projects ignore the task and still get a normal IEx.
+  (inf-elixir-project-command "iex -S mix phx.server"))
+
+;; Bind in the Elixir/HEEx maps only -- `C-c C-l' is `org-insert-link'
+;; globally, and these keymaps exist only once the (autoloaded, built-in)
+;; major modes have actually been loaded.
+(dolist (feature '(elixir-ts-mode heex-ts-mode))
+  (with-eval-after-load feature
+    (let ((map (symbol-value (intern (format "%s-map" feature)))))
+      (define-key map (kbd "C-c C-l i") #'inf-elixir-project) ; iex -S mix phx.server
+      (define-key map (kbd "C-c C-l I") #'inf-elixir)         ; bare iex
+      (define-key map (kbd "C-c C-l s") #'inf-elixir-set-repl); retarget this buffer
+      (define-key map (kbd "C-c C-l l") #'inf-elixir-send-line)
+      (define-key map (kbd "C-c C-l r") #'inf-elixir-send-region)
+      (define-key map (kbd "C-c C-l b") #'inf-elixir-send-buffer)
+      (define-key map (kbd "C-c C-l R") #'inf-elixir-reload-module))))
+;; Elixir & Phoenix:1 ends here
+
 ;; [[file:config.org::*Encrypted Files (EasyPG)][Encrypted Files (EasyPG):1]]
 (setq epa-file-encrypt-to '("hall@absinthe.org")
       epa-file-select-keys nil)
