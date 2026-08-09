@@ -29,7 +29,8 @@
        (add-to-list 'default-frame-alist '(width . 115))
        (add-to-list 'default-frame-alist '(height . 52)))
       (t
-       (add-to-list 'default-frame-alist '(height . 45))))
+       (add-to-list 'default-frame-alist '(width . 100))
+       (scroll-bar-mode -1)))
 ;; Basic UI and Startup Behavior:1 ends here
 
 ;; [[file:config.org::*Frame padding][Frame padding:1]]

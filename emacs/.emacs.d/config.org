@@ -226,14 +226,36 @@ never installs or runs it on the Linux box.
 
 Trim the startup screen and chrome, and give new frames a bit more
 room. Frame dimensions are per-machine, same reasoning as the font
-height below: the Linux box keeps its original 45-line-tall default
-(width unspecified), ~KevinsMacStudio~ opens at 100x60 characters, and
-this machine opens at 115x52.
+height below: ~KevinsMacStudio~ opens at 100x60 characters and
+~MWC9JXJTGDXD~ opens at 115x52.
+
+The Linux box (this Framework 13) previously tried ~(fullscreen .
+maximized)~ here, on the theory that a fixed character count would be
+wrong once KDE's fractional display scale (1.7x on 2880x1920) was
+factored in. In practice *maximized* filled the entire 13" panel edge
+to edge with nothing else on screen, which reads as fullscreen even
+though it's technically just "as big as the work area allows" --
+undoing that (dragging/double-clicking the title bar back down) landed
+on a window close to right, just a bit too narrow. So this machine now
+opens with an explicit ~width~ like the Macs, sized a notch past
+Emacs's plain default (80 columns) rather than matching either Mac's
+number outright, and no ~height~ override -- Emacs's own default
+height was never the complaint, only the old hardcoded ~45~ was.
 
 ~use-short-answers~ (Emacs 28+) makes every ~yes-or-no-p~ prompt
 accept a single ~y~/~n~ keypress instead of a typed-out "yes"/"no"
 followed by ~RET~ -- the modern replacement for the old
 ~(defalias 'yes-or-no-p 'y-or-n-p)~ trick.
+
+On this machine (the ~t~ branch below -- Fedora, PGTK build) the
+vertical scroll bar is drawn by GTK as a native toolkit widget, not by
+Emacs's own faces, so it ignores ~doom-tomorrow-night~ entirely and
+stays a flat white bar regardless of theme -- ~scroll-bar-foreground~/
+~-background~ have no effect on a toolkit scroll bar, only on the
+(unused here) non-toolkit one. Turning it off is the reliable fix,
+scoped to this machine so the Mac frames -- where it isn't a problem --
+are untouched. Position is still visible from the mode line and, while
+scrolling, from ~pixel-scroll-precision-mode~ above.
 
 #+begin_src emacs-lisp
 (setq inhibit-startup-message t)
@@ -248,7 +270,8 @@ followed by ~RET~ -- the modern replacement for the old
        (add-to-list 'default-frame-alist '(width . 115))
        (add-to-list 'default-frame-alist '(height . 52)))
       (t
-       (add-to-list 'default-frame-alist '(height . 45))))
+       (add-to-list 'default-frame-alist '(width . 100))
+       (scroll-bar-mode -1)))
 #+end_src
 
 ** Frame padding
@@ -1208,6 +1231,23 @@ the Cape sources are unaffected.
 #+end_src
 
 * Version Control
+
+** Symlinked dotfiles (Stow)
+
+This whole directory is reached through a symlink: ~/.emacs.d~ (per the
+Introduction) is really ~~/dotfiles/emacs/.emacs.d/~, put there by GNU
+Stow, and everything under ~~/dotfiles~ is a Git working tree. VC's
+default for ~vc-follow-symlinks~ is ~'ask~: every time a file is
+visited *through* a symlink into a VC-controlled tree, it stops to ask
+"Symbolic link to a file under version control; follow the link?" --
+useful when a stray symlink might be an accident, but here it fires on
+every single file this config opens, since *all* of it is reached that
+way by design. Setting it to ~t~ follows silently and edits the real
+Git-tracked file directly, which is exactly the intended workflow.
+
+#+begin_src emacs-lisp
+(setq vc-follow-symlinks t)
+#+end_src
 
 ** Magit
 
