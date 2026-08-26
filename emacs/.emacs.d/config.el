@@ -454,6 +454,10 @@ line the way plain `TAB' / `org-cycle' require."
 (setq text-mode-ispell-word-completion nil)
 ;; Turn off ispell word-completion in text buffers:1 ends here
 
+;; [[file:config.org::*Symlinked dotfiles (Stow)][Symlinked dotfiles (Stow):1]]
+(setq vc-follow-symlinks t)
+;; Symlinked dotfiles (Stow):1 ends here
+
 ;; [[file:config.org::*Magit][Magit:1]]
 (use-package magit
   :bind
@@ -631,8 +635,18 @@ line the way plain `TAB' / `org-cycle' require."
   :commands (notmuch notmuch-search notmuch-mua-new-mail)
   :bind ("C-c m" . notmuch)
   :config
+  ;; MUST be `setq-default', not `setq'.  notmuch-lib.el declares this
+  ;; variable with `(make-variable-buffer-local 'notmuch-search-oldest-first)',
+  ;; so a plain `setq' here creates a buffer-local binding in whichever buffer
+  ;; happens to be current while config.el loads (*scratch*) and leaves the
+  ;; global default at its shipped value of t.  `notmuch-search' then reads
+  ;; `(default-value 'notmuch-search-oldest-first)' explicitly -- deliberately
+  ;; ignoring buffer-local overrides -- so ad-hoc searches (`s' from hello, or
+  ;; M-x notmuch-search) still came back oldest-first.  The saved searches
+  ;; below were unaffected because each pins its own :sort-order, which is
+  ;; exactly why this looked for so long like "the global var doesn't work".
+  (setq-default notmuch-search-oldest-first nil)
   (setq notmuch-show-logo nil
-        notmuch-search-oldest-first nil
         ;; :sort-order newest-first is pinned per-search so it overrides the
         ;; global `notmuch-search-oldest-first' unconditionally.
         notmuch-saved-searches

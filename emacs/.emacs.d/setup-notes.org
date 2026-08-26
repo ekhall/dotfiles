@@ -697,12 +697,20 @@ messages (=Archive*= stays server-side by the =Patterns= exclusion, as designed)
 
 * Troubleshooting / gotchas learned during setup
 
-- *Newest-first didn't stick from the global var.* Setting
-  =notmuch-search-oldest-first nil= wasn't honored in the live GUI for
-  reasons never fully explained. Fixed by pinning =:sort-order newest-first=
-  on each =notmuch-saved-searches= entry (per-search overrides the global
-  unconditionally). Also: sort order is *buffer-local* — kill and reopen a
-  search buffer (or press =o=) after changing it.
+- *Newest-first didn't stick from the global var* (root cause found; was
+  "unexplained" for a long time). =notmuch-lib.el= declares the variable with
+  =(make-variable-buffer-local 'notmuch-search-oldest-first)=, so a plain
+  =(setq notmuch-search-oldest-first nil)= in =config.org= only ever created a
+  *buffer-local* binding in whichever buffer was current while =config.el=
+  loaded — the *global* default stayed at its shipped value of =t=. And
+  =notmuch-search= reads =(default-value 'notmuch-search-oldest-first)=
+  explicitly, deliberately ignoring buffer-local overrides, so every ad-hoc
+  search (=s= from hello, or =M-x notmuch-search=) came back oldest-first.
+  The saved searches looked fine throughout because each pins its own
+  =:sort-order newest-first=, which masked the real problem. *Fix:*
+  =setq-default=, not =setq=. Note sort order is still buffer-local per search
+  buffer — press =o= to flip one, or kill and reopen it after changing the
+  default.
 - *"text is read-only" when pressing a saved-search letter.* On the hello /
   search buffers, the letters (=i=, =u=, ...) are =notmuch-jump= shortcuts:
   press =j= first, then the letter. A bare letter tries to type into a
