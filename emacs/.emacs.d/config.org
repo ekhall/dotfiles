@@ -393,7 +393,7 @@ Critically, the height is set unconditionally, outside any font-
 family check -- previously it was set only inside the ~when~ guard
 above, so on a machine without SF Mono registered, the size never
 applied either. Height is per-machine: this config is shared
-between ~framework~ (130 / 13pt) and ~KevinsMacStudio~, whose
+between ~framework~ (220 / 22pt) and ~KevinsMacStudio~, whose
 display needs 180 / 18pt to look the same size. ~system-name~
 distinguishes them so one ~config.org~ can serve both without
 editing this on every pull.
@@ -434,7 +434,7 @@ falling back to its default \"Sans Serif\"."
      ;; Per-machine default height (variable-pitch inherits this).
      :height (cond ((string-prefix-p "KevinsMacStudio" (system-name)) 180)
                    ((string-prefix-p "MWC9JXJTGDXD" (system-name)) 180)
-                   (t 130)))
+                   (t 220)))
     (when prose-font
       ;; Family only: leaving :height unspecified lets variable-pitch
       ;; inherit the per-machine default height above, so `prose-mode's
@@ -512,8 +512,8 @@ downloads) when it exists at this path.
 
 * Themes
 
-The default is ~doom-tomorrow-night~ (dark). ~C-c t~ toggles between it and
-~doom-tomorrow-day~ (light), alternating from whichever theme is currently
+The portable fallback is ~doom-tomorrow-night~ (dark). ~C-c t~ toggles between
+it and ~doom-tomorrow-day~ (light), alternating from whichever theme is currently
 active. Both ship *inside* the ~doom-themes~ package -- there is no separate
 =doom-tomorrow-night=/=doom-tomorrow-day= package on MELPA, so trying to
 ~:ensure~ one fails with "package is unavailable". Themes are simply
@@ -525,6 +525,15 @@ sparing accent hues sampled from Apple's Logic Pro X) that used to be the
 default; it is no longer loaded, but =themes/= stays on
 ~custom-theme-load-path~ so ~(load-theme 'logic-dark t)~ still works if I
 switch back to it.
+
+On Linux, ~my/follow-omarchy-theme~ defaults to non-nil.  It installs
+[[https://github.com/berenddeboer/omarchy-emacs-theme][omarchy-emacs-theme]]
+directly from its GitHub repository and replaces the fallback Doom theme with
+faces generated from Omarchy's current ~colors.toml~ palette.  Omarchy's
+~theme-set.d~ hook asks a running Emacs daemon to reload whenever the desktop
+theme changes.  The option is false on macOS, so the shared configuration keeps
+the existing Doom theme behavior there.  Customize the option and restart (or
+reload the config) to opt Linux out temporarily.
 
 #+begin_src emacs-lisp
 (setq custom-safe-themes t)
@@ -567,6 +576,43 @@ never stack."
     (message "Theme: %s" next)))
 
 (global-set-key (kbd "C-c t") #'my/toggle-theme)
+
+(defcustom my/follow-omarchy-theme (eq system-type 'gnu/linux)
+  "When non-nil on Linux, follow Omarchy's current color palette.
+The Omarchy integration assets must also be installed so theme changes can
+generate a palette and notify a running Emacs daemon."
+  :type 'boolean
+  :group 'faces)
+
+(when (and (eq system-type 'gnu/linux) my/follow-omarchy-theme)
+  (use-package omarchy-emacs-theme
+    :vc (:url "https://github.com/berenddeboer/omarchy-emacs-theme.git"
+         :rev :newest)
+    :config
+    (omarchy-emacs-theme-load))
+
+  ;; The Omarchy theme uses its accent as the active mode-line background.
+  ;; spacious-padding normally adds a six-pixel box around the mode line;
+  ;; with an accent background that reads as a thick green frame.  Remove
+  ;; only that padding while Omarchy is active, and restore it for Doom or
+  ;; any other theme.
+  (defun my/adjust-mode-line-padding-for-theme (&optional _theme)
+    "Remove mode-line padding while the Omarchy theme is enabled."
+    ;; spacious-padding is deferred until `emacs-startup-hook', so its
+    ;; variables can be unbound when Omarchy first loads.
+    (when (boundp 'spacious-padding-widths)
+      (setf (plist-get spacious-padding-widths :mode-line-width)
+            (if (memq 'omarchy custom-enabled-themes) 0 6))
+      (when (bound-and-true-p spacious-padding-mode)
+        (spacious-padding-set-faces))))
+
+  ;; Run after spacious-padding's own theme hook, then handle the theme that
+  ;; was loaded just above (before this hook existed).
+  (add-hook 'enable-theme-functions
+            #'my/adjust-mode-line-padding-for-theme 90)
+  (add-hook 'emacs-startup-hook
+            #'my/adjust-mode-line-padding-for-theme 90)
+  (my/adjust-mode-line-padding-for-theme (car custom-enabled-themes)))
 #+end_src
 
 * Mode Line

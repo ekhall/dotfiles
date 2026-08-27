@@ -83,7 +83,7 @@ falling back to its default \"Sans Serif\"."
      ;; Per-machine default height (variable-pitch inherits this).
      :height (cond ((string-prefix-p "KevinsMacStudio" (system-name)) 180)
                    ((string-prefix-p "MWC9JXJTGDXD" (system-name)) 180)
-                   (t 130)))
+                   (t 220)))
     (when prose-font
       ;; Family only: leaving :height unspecified lets variable-pitch
       ;; inherit the per-machine default height above, so `prose-mode's
@@ -160,6 +160,43 @@ never stack."
     (message "Theme: %s" next)))
 
 (global-set-key (kbd "C-c t") #'my/toggle-theme)
+
+(defcustom my/follow-omarchy-theme (eq system-type 'gnu/linux)
+  "When non-nil on Linux, follow Omarchy's current color palette.
+The Omarchy integration assets must also be installed so theme changes can
+generate a palette and notify a running Emacs daemon."
+  :type 'boolean
+  :group 'faces)
+
+(when (and (eq system-type 'gnu/linux) my/follow-omarchy-theme)
+  (use-package omarchy-emacs-theme
+    :vc (:url "https://github.com/berenddeboer/omarchy-emacs-theme.git"
+         :rev :newest)
+    :config
+    (omarchy-emacs-theme-load))
+
+  ;; The Omarchy theme uses its accent as the active mode-line background.
+  ;; spacious-padding normally adds a six-pixel box around the mode line;
+  ;; with an accent background that reads as a thick green frame.  Remove
+  ;; only that padding while Omarchy is active, and restore it for Doom or
+  ;; any other theme.
+  (defun my/adjust-mode-line-padding-for-theme (&optional _theme)
+    "Remove mode-line padding while the Omarchy theme is enabled."
+    ;; spacious-padding is deferred until `emacs-startup-hook', so its
+    ;; variables can be unbound when Omarchy first loads.
+    (when (boundp 'spacious-padding-widths)
+      (setf (plist-get spacious-padding-widths :mode-line-width)
+            (if (memq 'omarchy custom-enabled-themes) 0 6))
+      (when (bound-and-true-p spacious-padding-mode)
+        (spacious-padding-set-faces))))
+
+  ;; Run after spacious-padding's own theme hook, then handle the theme that
+  ;; was loaded just above (before this hook existed).
+  (add-hook 'enable-theme-functions
+            #'my/adjust-mode-line-padding-for-theme 90)
+  (add-hook 'emacs-startup-hook
+            #'my/adjust-mode-line-padding-for-theme 90)
+  (my/adjust-mode-line-padding-for-theme (car custom-enabled-themes)))
 ;; Themes:1 ends here
 
 ;; [[file:config.org::*doom-modeline (active)][doom-modeline (active):1]]
