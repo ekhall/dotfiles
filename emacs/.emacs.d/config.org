@@ -434,7 +434,7 @@ falling back to its default \"Sans Serif\"."
      ;; Per-machine default height (variable-pitch inherits this).
      :height (cond ((string-prefix-p "KevinsMacStudio" (system-name)) 180)
                    ((string-prefix-p "MWC9JXJTGDXD" (system-name)) 180)
-                   (t 220)))
+                   (t 230)))
     (when prose-font
       ;; Family only: leaving :height unspecified lets variable-pitch
       ;; inherit the per-machine default height above, so `prose-mode's
