@@ -1646,7 +1646,12 @@ identically on every machine. ~C-c m~ opens the notmuch hello screen.
 
 ~notmuch-fcc-dirs~ handles the Sent copy *by From address*, and the two
 accounts differ. *Fastmail* does NOT save SMTP-sent mail server-side, so it
-gets a local Fcc into =fastmail/Sent= that the next ~mbsync~ uploads. *Yale*
+gets a local Fcc into =fastmail/Sent Items= that the next ~mbsync~ uploads.
+That is Fastmail's real Sent folder (IMAP role ~\Sent~) even though its web
+UI labels it "Sent"; the IMAP folder literally named =Sent= is a legacy
+folder, shown under the custom folders. The name has a space, so it is
+quoted inside the string -- notmuch splits the Fcc value with
+~split-string-and-unquote~ (anything after the folder is tag ops). *Yale*
 (Office 365) *does* auto-save sent mail into its Exchange =Sent Items=, so its
 Fcc is skipped (=nil=) and ~mbsync~ simply pulls the server's copy down -- a
 local Fcc there would only duplicate it (and trip the ~notmuch insert~ database
@@ -1687,10 +1692,11 @@ round-trips: notmuch <-> Maildir flags <-> mbsync <-> server.
   ;; Exchange Sent Items (mbsync then pulls that copy down), so its Fcc is
   ;; skipped (nil folder = no Fcc): a local Fcc there would only duplicate the
   ;; server copy and trip the `notmuch insert' database lock ("Insert failed"
-  ;; when it races the background `notmuch new').
+  ;; when it races the background `notmuch new').  Fastmail's real Sent
+  ;; folder is "Sent Items" (quoted: the value is split on spaces).
   (setq notmuch-fcc-dirs
         '(("kevin\\.hall@yale\\.edu" . nil)
-          (".*"                      . "fastmail/Sent"))))
+          (".*"                      . "\"fastmail/Sent Items\""))))
 
 ;; Compose/send with notmuch's message-mode.  Emacs's built-in `smtpmail'
 ;; can't speak XOAUTH2, which Yale (Microsoft 365) requires, so sending is
@@ -1756,6 +1762,32 @@ which only exist once notmuch has loaded.
 
   (define-key notmuch-search-mode-map (kbd "d") #'my/notmuch-search-delete)
   (define-key notmuch-show-mode-map   (kbd "d") #'my/notmuch-show-delete))
+#+end_src
+
+** Unread vs read in search results
+
+Out of the box the only difference between an unread and a read thread is
+bold (~notmuch-search-unread-face~), which barely registers in a monospace
+font. Instead, *read* threads are dimmed to the theme's ~shadow~ grey, so
+unread ones keep the theme's full colours (blue authors, bright subject) plus
+bold and stand out. notmuch can only colour lines by tags that are *present*
+(~notmuch-search-line-faces~), and there's no ~read~ tag, so the dimming is
+a ~:before~ advice on ~notmuch-search-color-line~. Running before the normal
+line faces means ~flagged~ still wins on a read thread. ~shadow~ comes from
+the theme, so both the night and day themes look right after ~C-c t~.
+
+#+begin_src emacs-lisp
+(defface my/notmuch-search-read-face
+  '((t :inherit shadow :weight normal))
+  "Face applied over read (not `unread') threads in notmuch-search.")
+
+(defun my/notmuch-search-dim-read (start end line-tag-list)
+  "Dim a notmuch-search line from START to END unless LINE-TAG-LIST has unread."
+  (unless (member "unread" line-tag-list)
+    (notmuch-apply-face nil 'my/notmuch-search-read-face nil start end)))
+
+(with-eval-after-load 'notmuch
+  (advice-add 'notmuch-search-color-line :before #'my/notmuch-search-dim-read))
 #+end_src
 
 ** Auto-fetch every 5 minutes

@@ -659,10 +659,11 @@ line the way plain `TAB' / `org-cycle' require."
   ;; Exchange Sent Items (mbsync then pulls that copy down), so its Fcc is
   ;; skipped (nil folder = no Fcc): a local Fcc there would only duplicate the
   ;; server copy and trip the `notmuch insert' database lock ("Insert failed"
-  ;; when it races the background `notmuch new').
+  ;; when it races the background `notmuch new').  Fastmail's real Sent
+  ;; folder is "Sent Items" (quoted: the value is split on spaces).
   (setq notmuch-fcc-dirs
         '(("kevin\\.hall@yale\\.edu" . nil)
-          (".*"                      . "fastmail/Sent"))))
+          (".*"                      . "\"fastmail/Sent Items\""))))
 
 ;; Compose/send with notmuch's message-mode.  Emacs's built-in `smtpmail'
 ;; can't speak XOAUTH2, which Yale (Microsoft 365) requires, so sending is
@@ -711,6 +712,20 @@ buffer), it sets the buffer-local `-a ACCOUNT' argument that
   (define-key notmuch-search-mode-map (kbd "d") #'my/notmuch-search-delete)
   (define-key notmuch-show-mode-map   (kbd "d") #'my/notmuch-show-delete))
 ;; Deleting mail (move to Fastmail Trash):1 ends here
+
+;; [[file:config.org::*Unread vs read in search results][Unread vs read in search results:1]]
+(defface my/notmuch-search-read-face
+  '((t :inherit shadow :weight normal))
+  "Face applied over read (not `unread') threads in notmuch-search.")
+
+(defun my/notmuch-search-dim-read (start end line-tag-list)
+  "Dim a notmuch-search line from START to END unless LINE-TAG-LIST has unread."
+  (unless (member "unread" line-tag-list)
+    (notmuch-apply-face nil 'my/notmuch-search-read-face nil start end)))
+
+(with-eval-after-load 'notmuch
+  (advice-add 'notmuch-search-color-line :before #'my/notmuch-search-dim-read))
+;; Unread vs read in search results:1 ends here
 
 ;; [[file:config.org::*Auto-fetch every 5 minutes][Auto-fetch every 5 minutes:1]]
 (with-eval-after-load 'notmuch
