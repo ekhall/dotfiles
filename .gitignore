@@ -6,6 +6,8 @@
 # Emacs backup / autosave churn
 *~
 *.bak
+projects.eld
+recentf.eld
 
 # --- mail: never commit secrets or machine-specific artifacts (PUBLIC repo) ---
 **/*.gpg
